@@ -1,6 +1,6 @@
 ## CGRA Project
 ### Introduction
-A Coarse-Grained Reconfigurable Array (CGRA) is a versatile hardware architecture designed to accelerate compute-intensive applications by leveraging parallelism. It consists of an array of processing elements (PEs) that can be dynamically or statically reconfigured to perform various computations, offering a balance between the flexibility of software and the performance of dedicated hardware. This project implements a CGRA to explore its potential in high-performance, energy-efficient computing for applications such as digital signal processing, machine learning, and multimedia processing.
+A Coarse-Grained Reconfigurable Array (CGRA) is a versatile hardware architecture designed to accelerate compute-intensive applications by leveraging parallelism. It consists of an array of processing elements (PEs) that can be dynamically or statically reconfigured to perform various computations, offering a balance between the flexibility of software and the performance of dedicated hardware. This project implements a CGRA to explore its potential in high-performance, energy-efficient computing for applications such as future robotics inference, digital signal processing, machine learning, and multimedia processing.
 
 ### Microarchitecture
 The microarchitecture of this CGRA project is designed to be modular and configurable, enabling flexibility for various computational tasks. The key components include:
@@ -19,3 +19,4 @@ This project can be extended by:
 - Implementing advanced interconnect topologies to optimize data transfer.
 - Developing a compiler or mapping tool to automate the scheduling of computations and data routing.
 - Integrating with frameworks for enhanced modeling and evaluation capabilities.
+- Want to develop it into Robotics edge Chip for real-time inference
