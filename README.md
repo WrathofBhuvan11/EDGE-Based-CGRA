@@ -28,20 +28,22 @@ Constraints for hardware simplicity (from the paper):
 ### ==========================================================
 ### RTL files planned - 
 ```
-trips_top.sv (Top-level module; instantiates entire core)
-├── g_tile.sv (Instance: g_tile_inst; Count: 1)  // Global control; handles block fetch, EXIT_ID branches (from B class)
-│   └── block_controller.sv (Instance: block_ctrl; Count: 1)  // Block atomicity, sequence number handling
-├── r_tile.sv (Instances: r_tile_bank[0:3]; Count: 4)  // 4 banks; enforce alignment (queue mod 8 == reg mod 4)
-│   (No further sub-instances; RAM + buffers for 32 reads/writes)
-├── e_tile.sv (Instances: e_tile_grid[0:3][0:3]; Count: 16)  // 4x4 grid; supports predication (_t/_f, p slot)
-│   ├── alu.sv (Instance: alu_unit; Count: 1 per E-tile)  // Handles G/I/C classes, predication check
-│   └── reservation_station.sv (Instance: res_station; Count: 1 per E-tile)  // 3 slots (left/right/pred); fire on readiness
-│         └── predicate_handler.sv (Instance: pred_handler; Count: 1)  // Handles _t/_f and p targets**
-├── i_tile.sv (Instance: i_tile_inst; Count: 1)  // I-cache; decodes TASL to instr_t
-│     └── isa_decoder.sv (Instance: isa_dec; Count: 1)  // Parse classes (G/I/L/S/C/B), %bit ops, LSID/EXIT_ID**
-├── d_tile.sv (Instance: d_tile_inst; Count: 1)  // D-cache; L/S classes with LSID
-│   └── lsid_unit.sv (Instance: lsid_handler; Count: 1)  // Ordering queue (up to 32 LSIDs)
-└── switching_network.sv (Instance: switch_net; Count: 1)  // Mesh; routes to targets (1-2, incl. W queues)
+trips_top.sv (Top: Chip; Instances: trips_core_inst[0:3] (4 cores), mem_tile_inst[0:31] (32 tiles), onchip_mem_network_inst (1))
+├── trips_core.sv (Instance: trips_core_inst[0:3]; Count: 4)  // Per core: Grid + tiles
+│   ├── g_tile.sv (Instance: g_tile_inst; Count: 1)  // Block ctrl, speculation (8 blocks), morph config
+│   │   └── block_controller.sv (Instance: block_ctrl; Count: 1)  // Atomicity, revitalization (S-morph), EXIT_ID
+│   ├── r_tile.sv (Instances: r_tile_bank[0:3]; Count: 4)  // Banks; queues R/W[0-31], alignment mod 4
+│   ├── e_tile.sv (Instances: e_tile_grid[0:3][0:3]; Count: 16)  // Grid nodes; frames=8
+│   │   ├── alu_fp_unit.sv (Instance: alu_fp_inst; Count: 1/node)  // G/I/C ops, %bit extract (hi/mid/lo/bottom)
+│   │   └── reservation_station.sv (Instance: res_station; Count: 1/node)  // 3 slots (left/right/p), dataflow fire
+│   │       └── predicate_handler.sv (Instance: pred_handler; Count: 1)  // _t/_f check, p slot routing
+│   ├── i_tile.sv (Instance: i_tile_inst; Count: 1)  // I-cache; TASL decode
+│   │   └── isa_decoder.sv (Instance: isa_dec; Count: 1)  // Classes (G/I/L/S/B/C), predicates, LSID/EXIT_ID, sequence <num>
+│   ├── d_tile.sv (Instance: d_tile_inst; Count: 1)  // D-cache; LSID queues (32)
+│   │   └── lsid_unit.sv (Instance: lsid_handler; Count: 1)  // Ordering for L/S classes
+│   └── switching_network.sv (Instance: operand_net; Count: 1)  // Mesh routers; targets (N/W, 0/1/p slots)
+├── mem_tile.sv (Instances: mem_tile_inst[0:31]; Count: 32)  // 32KB each; polymorph (cache/scratchpad/SRF)
+└── onchip_mem_network.sv (Instance: mem_net; Count: 1)  // Switched 2D; wide channels for SRF (S-morph)
 ```
 #### 1.  trips_top.sv: Top-level module; instantiates all tiles, interconnects, clocks/resets. Ports: External memory interface, debug.
 #### 2.  g_tile.sv: Global control logic; block tracker, branch predictor, fetch controller.
