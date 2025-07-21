@@ -46,22 +46,3 @@ Constraints for hardware simplicity (from the paper):
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-### Future Directions
-This project can be extended by:
-
-- Adding support for new functional units, such as specialized DSP or machine learning accelerators.
-- Implementing advanced interconnect topologies to optimize data transfer.
-- Developing a compiler or mapping tool to automate the scheduling of computations and data routing.
-- Integrating with frameworks for enhanced modeling and evaluation capabilities.
-- Want to develop it into Robotics edge Chip for real-time inference
