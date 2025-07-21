@@ -17,6 +17,37 @@ The key components include:
 
 The CGRA's design emphasizes short reconfiguration times and low power consumption compared to Field-Programmable Gate Arrays (FPGAs), achieved through standard cell implementations and coarse-grained reconfigurability. A compiler or mapping tool is essential to manage the scheduling of computations and data routing, addressing challenges posed by sparse connectivity and distributed memory.
 
+
+#### 1.  trips_top.sv: Top-level module; instantiates all tiles, interconnects, clocks/resets. Ports: External memory interface, debug.
+#### 2.  g_tile.sv: Global control logic; block tracker, branch predictor, fetch controller.
+#### 3.  r_tile.sv: Register bank module (parameterized for 4 instances); includes buffering for reads/writes.
+#### 4.  e_tile.sv: Execution tile; ALU, reservation station (queue for up to 128/16=8 instr per tile avg), operand matcher.
+#### 5.  i_tile.sv: Instruction cache; fetch/decode logic, block header parser (for store masks).
+#### 6.  d_tile.sv: Data cache; LSID-based ordering queue, load/store unit.
+#### 7.  switching_network.sv: Mesh interconnect for operand routing (routers per tile, 1-cycle hops).
+#### 8.  reservation_station.sv: Sub-module for E-tiles; holds instructions, checks operand readiness.
+#### 9.  alu.sv: Parameterized ALU (add, sub, mul, etc.; support predicates).
+#### 10.  lsid_unit.sv: For D-tile; handles LSID assignment validation and ordering.
+#### 11.  block_controller.sv: Manages block atomicity, completion detection (count outputs).
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 ### Future Directions
 This project can be extended by:
 
