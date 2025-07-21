@@ -12,7 +12,7 @@ The TRIPS (Tera-op, Reliable, Intelligently adaptive Processing System) architec
 
 This explanation is tailored for a GitHub README, assuming an audience familiar with basic computer architecture (e.g., ECE undergrads). It draws from the provided paper "Compiling for EDGE Architectures" (2004) and related references. For implementation details, refer to the SystemVerilog modules in this repo.
 
-## TRIPS itro?
+## TRIPS intro?
 TRIPS is a tiled, grid-based processor designed for polymorphic execution—dynamically adapting to different workloads (e.g., single-threaded ILP-heavy tasks or vectorized DLP for AI/math). It targets tera-op performance (trillions of operations per second) on a single chip, using a distributed microarchitecture to minimize global communication and power consumption.
 
 ## What is EDGE ISA?
@@ -25,7 +25,7 @@ Constraints for hardware simplicity (from the paper):
 * Max 32 loads/stores (using 5-bit LSIDs for ordering).
 * Max 32 register reads/writes (8 per bank across 4 banks).
 * Constant outputs: Fixed number of stores, writes, and 1 branch per block.
-### =================================================================================================
+### ================================================================================
 
 #### 1.  trips_top.sv: Top-level module; instantiates all tiles, interconnects, clocks/resets. Ports: External memory interface, debug.
 #### 2.  g_tile.sv: Global control logic; block tracker, branch predictor, fetch controller.
