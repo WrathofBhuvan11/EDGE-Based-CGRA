@@ -1,22 +1,31 @@
 ## EDGE based TRIPS - CGRA Project
-### Introduction
+## Introduction
 A Coarse-Grained Reconfigurable Array (CGRA) is a versatile hardware architecture designed to accelerate compute-intensive applications by leveraging parallelism. It consists of an array of processing elements (PEs) that can be dynamically or statically reconfigured to perform various computations, offering a balance between the flexibility of software and the performance of dedicated hardware. This project implements a CGRA to explore its potential in high-performance, energy-efficient computing for applications such as future robotics inference, digital signal processing, machine learning, and multimedia processing.
 
 TRIPS is one such architecture sub category. It follows EDGE ISA.
 
-### Microarchitecture EDGE - Explicit data graph execution
+## TRIP Microarchitecture EDGE - Explicit data graph execution
 The microarchitecture of this CGRA project is designed to be modular and configurable, enabling flexibility for various computational tasks. EDGE combines many individual instructions into a larger group known as a "hyperblock". Hyperblocks are designed to be able to easily run in parallel. TRIPS is a processor based on the Explicit Data Graph Execution (EDGE) ISA.
 
+## TRIPS Processor Architecture Overview
+The TRIPS (Tera-op, Reliable, Intelligently adaptive Processing System) architecture is an experimental microprocessor design developed at the University of Texas at Austin as part of DARPA's Polymorphous Computing Architectures (PCA) program in the early 2000s. It serves as a prototype implementation of the Explicit Data Graph Execution (EDGE) Instruction Set Architecture (ISA), aiming to achieve high levels of instruction-level parallelism (ILP), thread-level parallelism (TLP), and data-level parallelism (DLP) while maintaining energy efficiency and adaptability. TRIPS addresses challenges like growing wire delays, power limits, and diminishing clock scaling in traditional processors (e.g., RISC/CISC).
 
-The key components include:
+This explanation is tailored for a GitHub README, assuming an audience familiar with basic computer architecture (e.g., ECE undergrads). It draws from the provided paper "Compiling for EDGE Architectures" (2004) and related references. For implementation details, refer to the SystemVerilog modules in this repo.
 
-- Processing Elements (PEs): These are the core computational units, each capable of performing word-level operations such as addition, subtraction, multiplication, and multiply-accumulate (MAC). PEs can be configured to execute specific instructions based on the application's requirements, supporting both fixed-point and floating-point operations for versatility.
-- Interconnect Network: A configurable network, typically a mesh or torus topology, connects the PEs to facilitate efficient data transfer. The interconnect can be customized to optimize data flow, reducing latency and improving performance for parallel computations.
-- Memory Systems: The CGRA includes distributed register files and memory tiles to store temporary values and data. These are accessible by subsets of PEs, minimizing memory access bottlenecks. Shared memory systems may also be implemented for larger data sets.
-- Configuration Memory: Stores the configuration data that defines the functionality of PEs and the routing of the interconnect network. This allows the CGRA to adapt to different tasks by loading new configurations, either dynamically during runtime or statically at design time.
+## TRIPS itro?
+TRIPS is a tiled, grid-based processor designed for polymorphic execution—dynamically adapting to different workloads (e.g., single-threaded ILP-heavy tasks or vectorized DLP for AI/math). It targets tera-op performance (trillions of operations per second) on a single chip, using a distributed microarchitecture to minimize global communication and power consumption.
 
-The CGRA's design emphasizes short reconfiguration times and low power consumption compared to Field-Programmable Gate Arrays (FPGAs), achieved through standard cell implementations and coarse-grained reconfigurability. A compiler or mapping tool is essential to manage the scheduling of computations and data routing, addressing challenges posed by sparse connectivity and distributed memory.
-
+## What is EDGE ISA?
+EDGE (Explicit Data Graph Execution) is the ISA powering TRIPS. It's a hybrid dataflow model:
+Programs are compiled into atomic hyperblocks (up to 128 instructions each), forming a data graph where dependencies are explicitly encoded.
+Instructions don't use traditional registers for intra-block communication; instead, producers directly target consumers (e.g., "ADD result to instr 126's left operand").
+Execution is block-atomic: Fetch/execute/commit as a unit, with dynamic issue (out-of-order within block when operands ready).
+Constraints for hardware simplicity (from the paper):
+* Max 128 instructions/block.
+* Max 32 loads/stores (using 5-bit LSIDs for ordering).
+* Max 32 register reads/writes (8 per bank across 4 banks).
+* Constant outputs: Fixed number of stores, writes, and 1 branch per block.
+### =================================================================================================
 
 #### 1.  trips_top.sv: Top-level module; instantiates all tiles, interconnects, clocks/resets. Ports: External memory interface, debug.
 #### 2.  g_tile.sv: Global control logic; block tracker, branch predictor, fetch controller.
