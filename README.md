@@ -43,27 +43,27 @@ trips_top.sv (Top-level module; instantiates entire core)
 │   └── lsid_unit.sv (Instance: lsid_handler; Count: 1)  // Ordering queue (up to 32 LSIDs)
 └── switching_network.sv (Instance: switch_net; Count: 1)  // Mesh; routes to targets (1-2, incl. W queues)
 ```
-##### 1.  trips_top.sv: Top-level module; instantiates all tiles, interconnects, clocks/resets. Ports: External memory interface, debug.
-##### 2.  g_tile.sv: Global control logic; block tracker, branch predictor, fetch controller.
-##### 3.  r_tile.sv: Register bank module (parameterized for 4 instances); includes buffering for reads/writes.
-##### 4.  e_tile.sv: Execution tile; ALU, reservation station (queue for up to 128/16=8 instr per tile avg), operand matcher.
-##### 5.  i_tile.sv: Instruction cache; fetch/decode logic, block header parser (for store masks).
-##### 6.  d_tile.sv: Data cache; LSID-based ordering queue, load/store unit.
-##### 7.  switching_network.sv: Mesh interconnect for operand routing (routers per tile, 1-cycle hops).
-##### 8.  reservation_station.sv: Sub-module for E-tiles; holds instructions, checks operand readiness.
-##### 9.  alu.sv: Parameterized ALU (add, sub, mul, etc.; support predicates).
-##### 10.  lsid_unit.sv: For D-tile; handles LSID assignment validation and ordering.
-##### 11.  block_controller.sv: Manages block atomicity, completion detection (count outputs).
+#### 1.  trips_top.sv: Top-level module; instantiates all tiles, interconnects, clocks/resets. Ports: External memory interface, debug.
+#### 2.  g_tile.sv: Global control logic; block tracker, branch predictor, fetch controller.
+#### 3.  r_tile.sv: Register bank module (parameterized for 4 instances); includes buffering for reads/writes.
+#### 4.  e_tile.sv: Execution tile; ALU, reservation station (queue for up to 128/16=8 instr per tile avg), operand matcher.
+#### 5.  i_tile.sv: Instruction cache; fetch/decode logic, block header parser (for store masks).
+#### 6.  d_tile.sv: Data cache; LSID-based ordering queue, load/store unit.
+#### 7.  switching_network.sv: Mesh interconnect for operand routing (routers per tile, 1-cycle hops).
+#### 8.  reservation_station.sv: Sub-module for E-tiles; holds instructions, checks operand readiness.
+#### 9.  alu.sv: Parameterized ALU (add, sub, mul, etc.; support predicates).
+#### 10.  lsid_unit.sv: For D-tile; handles LSID assignment validation and ordering.
+#### 11.  block_controller.sv: Manages block atomicity, completion detection (count outputs).
 
 Include files
 Include Files (.svh)
 These are headers for constants, interfaces, structs (non-synth, used in modules):
 
-##### trips_defines.svh: Constants (e.g., BLOCK_SIZE=128, NUM_BANKS=4, LSID_BITS=5, GRID_SIZE=4).
-##### trips_types.svh: Typedefs/structs (e.g., instruction format: opcode, targets; operand struct).
-##### trips_interfaces.svh: Interface defs (e.g., for tile-to-tile comm: operand ports, control signals).
-##### trips_isa.svh: EDGE ISA encodings (e.g., ADD target syntax, NULL instr, MOV fanout).
-##### trips_params.svh: Parameter defaults (e.g., REG_COUNT=128, CACHE_SIZE=2048)
+#### 1. trips_defines.svh: Constants (e.g., BLOCK_SIZE=128, NUM_BANKS=4, LSID_BITS=5, GRID_SIZE=4).
+#### 2. trips_types.svh: Typedefs/structs (e.g., instruction format: opcode, targets; operand struct).
+#### 3. trips_interfaces.svh: Interface defs (e.g., for tile-to-tile comm: operand ports, control signals).
+#### 4. trips_isa.svh: EDGE ISA encodings (e.g., ADD target syntax, NULL instr, MOV fanout).
+#### 5. trips_params.svh: Parameter defaults (e.g., REG_COUNT=128, CACHE_SIZE=2048)
 
 
 
