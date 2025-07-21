@@ -25,7 +25,7 @@ Constraints for hardware simplicity (from the paper):
 * Max 32 loads/stores (using 5-bit LSIDs for ordering).
 * Max 32 register reads/writes (8 per bank across 4 banks).
 * Constant outputs: Fixed number of stores, writes, and 1 branch per block.
-### ======================================================================
+### ==========================================================
 ### RTL files planned - 
 ```
 trips_top.sv (Top-level module; instantiates entire core)
