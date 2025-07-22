@@ -1,9 +1,5 @@
 // trips_types.svh
 // Typedefs and structs for TRIPS EDGE Architecture (ISA classes G/I/L/S/B/C, predicates, bit extract)
-
-`ifndef TRIPS_TYPES_SVH
-`define TRIPS_TYPES_SVH
-
 `include "trips_defines.svh"
 
 // Basic types
@@ -56,5 +52,3 @@ typedef struct packed {
     operand_t [2:0] operands;       // Left, right, pred operands
     logic ready;                    // Ready to issue?
 } res_station_entry_t;
-
-`endif // TRIPS_TYPES_SVH
