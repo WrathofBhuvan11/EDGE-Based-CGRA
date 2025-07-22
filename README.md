@@ -29,7 +29,7 @@ Constraints for hardware simplicity (from the paper):
 ### ==========================================================
 ### RTL files planned - 
 ```
-trips_top.sv (Top: Chip; Instances: trips_core_inst[0:3] (4 cores), mem_tile_inst[0:31] (32 tiles), onchip_mem_network_inst (1))
+trips_processor.sv (Top: Chip; Instances: trips_core_inst[0:3] (4 cores), mem_tile_inst[0:31] (32 tiles), onchip_mem_network_inst (1))
 ├── trips_core.sv (Instance: trips_core_inst[0:3]; Count: 4)  // Per core: Grid + tiles
 │   ├── g_tile.sv (Instance: g_tile_inst; Count: 1)  // Block ctrl, speculation (8 blocks), morph config
 │   │   └── block_controller.sv (Instance: block_ctrl; Count: 1)  // Atomicity, revitalization (S-morph), EXIT_ID
