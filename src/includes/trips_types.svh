@@ -1,5 +1,9 @@
 // trips_types.svh
 // Typedefs and structs for TRIPS EDGE Architecture (ISA classes G/I/L/S/B/C, predicates, bit extract)
+
+`ifndef TRIPS_TYPES_SVH
+`define TRIPS_TYPES_SVH
+
 `include "trips_defines.svh"
 
 // Basic types
@@ -38,7 +42,7 @@ typedef struct packed {
     logic [4:0] reg_id;             // Register ID for reads/writes (5 bits for 32 queues/bank)
 } instr_t;
 
-// Block header struct: For fetch/completion (store mask from compiler paper; TASL .bbegin)
+// Block header struct: For fetch/completion
 typedef struct packed {
     logic [31:0] store_mask;        // 32-bit mask for expected stores (constant outputs)
     logic [4:0] num_reg_writes;     // Expected register writes (up to 32)
@@ -52,3 +56,5 @@ typedef struct packed {
     operand_t [2:0] operands;       // Left, right, pred operands
     logic ready;                    // Ready to issue?
 } res_station_entry_t;
+
+`endif // TRIPS_TYPES_SVH
