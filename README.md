@@ -6,6 +6,7 @@ TRIPS is one such architecture sub category. It follows EDGE ISA.
 
 ## TRIP Microarchitecture EDGE - Explicit data graph execution
 The microarchitecture of this CGRA project is designed to be modular and configurable, enabling flexibility for various computational tasks. EDGE combines many individual instructions into a larger group known as a "hyperblock". Hyperblocks are designed to be able to easily run in parallel. TRIPS is a processor based on the Explicit Data Graph Execution (EDGE) ISA.
+<img width="746" height="257" alt="image" src="https://github.com/user-attachments/assets/04a85cea-e6f4-43d0-961f-31ab7e583680" />
 
 ## TRIPS Processor Architecture Overview
 The TRIPS (Tera-op, Reliable, Intelligently adaptive Processing System) architecture is an experimental microprocessor design developed at the UT at Austin as part of DARPA's Polymorphous Computing Architectures (PCA) program in the early 2000s. It serves as a prototype implementation of the Explicit Data Graph Execution (EDGE) Instruction Set Architecture (ISA), aiming to achieve high levels of instruction-level parallelism (ILP), thread-level parallelism (TLP), and data-level parallelism (DLP) while maintaining energy efficiency and adaptability. TRIPS addresses challenges like growing wire delays, power limits, and diminishing clock scaling in traditional processors (e.g., RISC/CISC).
