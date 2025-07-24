@@ -43,8 +43,10 @@ trips_processor.sv (Top: Chip; Instances: trips_core_inst[0:3] (4 cores), mem_ti
 │   ├── d_tile.sv (Instance: d_tile_inst; Count: 1)  // D-cache; LSID queues (32)
 │   │   └── lsid_unit.sv (Instance: lsid_handler; Count: 1)  // Ordering for L/S classes
 │   └── switching_network.sv (Instance: operand_net; Count: 1)  // Mesh routers; targets (N/W, 0/1/p slots)
+|       └── router.sv (Instance router_inst- 5-port XY with RR arb, wormhole, buffers)
 ├── mem_tile.sv (Instances: mem_tile_inst[0:31]; Count: 32)  // 32KB each; polymorph (cache/scratchpad/SRF)
 └── onchip_mem_network.sv (Instance: mem_net; Count: 1)  // Switched 2D; wide channels for SRF (S-morph)
+    └── router.sv (Instance router_inst- 5-port XY with RR arb, wormhole, buffers)
 ```
 #### - trips_top.sv: The trips_top.sv module acts as the main chip wrapper for the TRIPS processor, bringing together four cores, 32 memory tiles, and on-chip networks to build the full system. It oversees top-level connections, clock signals, resets, and external links like memory controllers, while enabling reconfiguration for D, T, and S modes through signal propagation. This setup promotes flexibility, supporting different grid and frame sizes for block-based execution.
 
