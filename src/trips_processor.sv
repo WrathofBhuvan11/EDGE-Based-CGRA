@@ -1,7 +1,7 @@
 /*
 trips_processor.sv
 Top-level chip wrapper for TRIPS processor: Instantiates 4 cores (prototype), 32 memory tiles, and on-chip memory network.
-Manages high-level interconnections, clock/reset distribution, external interfaces (e.g., memory controllers), and polymorphism signals.
+Manages high-level interconnections, clock/reset distribution, external interfaces (example- memory controllers), and polymorphism signals.
 Scalable via parameters for grid size, frames, morph modes; supports block-atomic execution across morphs (D/T/S).
 Hierarchy: Top container for trips_core[0:3], mem_tile[0:31], onchip_mem_network.
 */
@@ -19,14 +19,14 @@ module trips_processor #(
 ) (
     input clk,                              // Global clock
     input rst_n,                            // Active-low reset
-    // External memory interface (e.g., DDR controllers; simplified)
+    // External memory interface (example, DDR controllers; simplified)
     input logic [31:0] ext_mem_addr,        // Address from/to external memory
     input logic ext_mem_rd_req,             // Read request
     input logic ext_mem_wr_req,             // Write request
     input reg_data_t ext_mem_wr_data,       // Write data
     output reg_data_t ext_mem_rd_data,      // Read data
     output logic ext_mem_ack,               // Acknowledge
-    // Morph configuration input (e.g., from software/OS; for polymorphism)
+    // Morph configuration input (example, from software/OS; for polymorphism)
     input logic [1:0] global_morph_mode,    // D/T/S mode for all cores
     // Debug/trace ports 
     output logic debug_commit,              // Block commit signal
@@ -82,7 +82,7 @@ module trips_processor #(
             ) mem_tile_inst (
                 .clk(clk),
                 .rst_n(rst_n),
-                .morph_config(global_config),   // Config for SRF in S-morph (e.g., no tags, direct access)
+                .morph_config(global_config),   // Config for SRF in S-morph (example- no tags, direct access)
                 .mem_tile_if(mem_net_to_tile_if[tile_idx]),  // From on-chip network
                 // Wide SRF channels if adjacent to cores (simplified: assume first 4 tiles adjacent)
                 .srf_wide_data((tile_idx < NUM_CORES) ? core_to_mem_if[tile_idx].data_wide : '0),
