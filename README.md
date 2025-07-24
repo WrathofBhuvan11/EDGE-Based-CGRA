@@ -5,7 +5,7 @@ A Coarse-Grained Reconfigurable Array (CGRA) is a versatile hardware architectur
 
 TRIPS is one such architecture sub category. It follows EDGE ISA.
 
-## TRIP Microarchitecture EDGE - Explicit data graph execution
+## TRIPS Microarchitecture EDGE - Explicit data graph execution
 The microarchitecture of this CGRA project is designed to be modular and configurable, enabling flexibility for various computational tasks. EDGE combines many individual instructions into a larger group known as a "hyperblock". Hyperblocks are designed to be able to easily run in parallel. TRIPS is a processor based on the Explicit Data Graph Execution (EDGE) ISA.
 <img width="746" height="257" alt="image" src="https://github.com/user-attachments/assets/04a85cea-e6f4-43d0-961f-31ab7e583680" />
 
