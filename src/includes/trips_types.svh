@@ -45,7 +45,7 @@ typedef struct packed {
 // Block header struct: For fetch/completion
 typedef struct packed {
     logic [31:0] store_mask;        // 32-bit mask for expected stores (constant outputs)
-    logic [4:0] num_reg_writes;     // Expected register writes (up to 32)
+    logic [5:0] num_reg_writes;     // Expected register writes (up to 32)
     logic block_valid;              // Block ready to execute
     logic [1:0] morph_mode;         // Morph config: 00=D, 01=T, 10=S
 } block_header_t;
