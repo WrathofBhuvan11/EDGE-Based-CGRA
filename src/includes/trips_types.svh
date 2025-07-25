@@ -57,4 +57,20 @@ typedef struct packed {
     logic ready;                    // Ready to issue?
 } res_station_entry_t;
 
+ // Generic flit (union-like; conditional fields via param FLIT_TYPE: 0=operand,1=mem)
+typedef struct packed {
+    operand_t operand;                  // Operand data/valid/source (operand net)
+    instr_num_t dest_instr;             // Dest instr (operand)
+    logic [1:0] dest_slot;              // Slot (operand)
+    logic [ADDR_WIDTH-1:0] addr;        // Addr (mem net)
+    logic is_read;                      // Read/write (mem)
+    logic is_wide;                      // Wide (mem S-morph)
+    logic [1:0] transfer_type;          // Transfer (mem)
+    logic [15:0] payload_size;          // Payload (mem multi-flit)
+    logic [FLIT_SIZE-1:0] data;         // Data (mem)
+    logic last_flit;                    // Last flit (mem)
+    logic ipriority;                     // Priority (both; higher for mem wide)
+    logic [$clog2(NUM_CORES)-1:0] src_core;  // Src core (mem response)
+} generic_flit_t;
+ 
 `endif // TRIPS_TYPES_SVH
