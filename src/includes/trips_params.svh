@@ -22,4 +22,12 @@ parameter int NETWORK_HOPS_MAX = 3;                 // Max hops in 4x4 grid (~3 
 parameter int BANK_ID_WIDTH = 2;                    // 2 bits for 4 banks
 parameter int MORPH_MODE_DEFAULT = `MORPH_D;        // Default morph: D (ILP)
 
+
+parameter NUM_CORES = 4;                // Cores connected (prototype: 4)
+parameter ADDR_WIDTH = 32;              // Address width
+parameter FLIT_SIZE = 64;               // Flit size (bits; for multi-flit packets)
+
+parameter NUM_PORTS = 5;
+parameter NORTH = 0, SOUTH = 1, EAST = 2, WEST = 3, LOCAL = 4;
+
 `endif // TRIPS_PARAMS_SVH
