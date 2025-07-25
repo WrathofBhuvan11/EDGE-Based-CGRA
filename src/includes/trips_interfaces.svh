@@ -88,4 +88,22 @@ interface mem_tile_if;
     modport tile (input addr, input read_req, input write_req, input data_wide, input config_srf, output ack);
 endinterface
 
+
+// Router interface with generic_flit_t
+interface router_if;
+    generic_flit_t flit_in;
+    logic req_in;
+    logic ack_out;
+    generic_flit_t flit_out;
+    logic req_out;
+    logic ack_in;
+
+    modport north (input flit_in, input req_in, output ack_out, output flit_out, output req_out, input ack_in);
+    modport south (input flit_in, input req_in, output ack_out, output flit_out, output req_out, input ack_in);
+    modport east (input flit_in, input req_in, output ack_out, output flit_out, output req_out, input ack_in);
+    modport west (input flit_in, input req_in, output ack_out, output flit_out, output req_out, input ack_in);
+    modport iolocal (input flit_in, input req_in, output ack_out, output flit_out, output req_out, input ack_in);
+endinterface
+
+
 `endif // TRIPS_INTERFACES_SVH
