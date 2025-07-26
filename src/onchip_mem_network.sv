@@ -47,8 +47,40 @@ module onchip_mem_network #(
 
     // Mapping: Cores to top-row routers (0,0) to (0,3); tiles to remaining (ID % TOTAL_ROUTERS)
     localparam int CORE_ROUTER_MAP [NUM_CORES-1:0] = '{0: 0*ROUTER_COLS + 0, 1: 0*ROUTER_COLS + 1, 2: 0*ROUTER_COLS + 2, 3: 0*ROUTER_COLS + 3};
-    localparam int TILE_ROUTER_MAP [NUM_TILES-1:0] = '{0:1*ROUTER_COLS+0, 1:1*ROUTER_COLS+1}; // extend to 31
-
+    localparam int TILE_ROUTER_MAP [NUM_TILES-1:0] ='{
+                                                         0: 1*ROUTER_COLS + 0,
+                                                         1: 1*ROUTER_COLS + 1,
+                                                         2: 1*ROUTER_COLS + 2,
+                                                         3: 1*ROUTER_COLS + 3,
+                                                         4: 2*ROUTER_COLS + 0,
+                                                         5: 2*ROUTER_COLS + 1,
+                                                         6: 2*ROUTER_COLS + 2,
+                                                         7: 2*ROUTER_COLS + 3,
+                                                         8: 3*ROUTER_COLS + 0,
+                                                         9: 3*ROUTER_COLS + 1,
+                                                         10: 3*ROUTER_COLS + 2,
+                                                         11: 3*ROUTER_COLS + 3,
+                                                         12: 4*ROUTER_COLS + 0,
+                                                         13: 4*ROUTER_COLS + 1,
+                                                         14: 4*ROUTER_COLS + 2,
+                                                         15: 4*ROUTER_COLS + 3,
+                                                         16: 5*ROUTER_COLS + 0,
+                                                         17: 5*ROUTER_COLS + 1,
+                                                         18: 5*ROUTER_COLS + 2,
+                                                         19: 5*ROUTER_COLS + 3,
+                                                         20: 6*ROUTER_COLS + 0,
+                                                         21: 6*ROUTER_COLS + 1,
+                                                         22: 6*ROUTER_COLS + 2,
+                                                         23: 6*ROUTER_COLS + 3,
+                                                         24: 7*ROUTER_COLS + 0,
+                                                         25: 7*ROUTER_COLS + 1,
+                                                         26: 7*ROUTER_COLS + 2,
+                                                         27: 7*ROUTER_COLS + 3,
+                                                         28: 8*ROUTER_COLS + 0,
+                                                         29: 8*ROUTER_COLS + 1,
+                                                         30: 8*ROUTER_COLS + 2,
+                                                         31: 8*ROUTER_COLS + 3
+                                                         };
     // Internal signals
     logic is_srf_mode = morph_config.srf_enable;
 
