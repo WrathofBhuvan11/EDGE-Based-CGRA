@@ -30,4 +30,5 @@ parameter FLIT_SIZE = 64;               // Flit size (bits; for multi-flit packe
 parameter NUM_PORTS = 5;
 parameter NORTH = 0, SOUTH = 1, EAST = 2, WEST = 3, LOCAL = 4;
 
+
 `endif // TRIPS_PARAMS_SVH
