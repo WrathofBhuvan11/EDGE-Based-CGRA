@@ -110,60 +110,63 @@ module onchip_mem_network #(
     endgenerate
 
     // Connect mesh links: N-S, E-W (boundary null)
-    always_comb begin
-        for (int rr = 0; rr < ROUTER_ROWS; rr++) begin
-            for (int rc = 0; rc < ROUTER_COLS; rc++) begin
-                int rid = rr * ROUTER_COLS + rc;
-                int north_rid = (rr > 0) ? (rr-1) * ROUTER_COLS + rc : -1;
-                int south_rid = (rr < ROUTER_ROWS-1) ? (rr+1) * ROUTER_COLS + rc : -1;
-                int east_rid = (rc < ROUTER_COLS-1) ? rr * ROUTER_COLS + (rc+1) : -1;
-                int west_rid = (rc > 0) ? rr * ROUTER_COLS + (rc-1) : -1;
+    // generate (per-router comb; static unroll for const indices)
+    generate
+        for (genvar rr = 0; rr < ROUTER_ROWS; rr++) begin : gen_connect_rows
+            for (genvar rc = 0; rc < ROUTER_COLS; rc++) begin : gen_connect_cols
+                localparam int RID = rr * ROUTER_COLS + rc;
+                localparam int NORTH_RID = (rr > 0) ? (rr-1) * ROUTER_COLS + rc : -1;
+                localparam int SOUTH_RID = (rr < ROUTER_ROWS-1) ? (rr+1) * ROUTER_COLS + rc : -1;
+                localparam int EAST_RID = (rc < ROUTER_COLS-1) ? rr * ROUTER_COLS + (rc+1) : -1;
+                localparam int WEST_RID = (rc > 0) ? rr * ROUTER_COLS + (rc-1) : -1;
 
-                // N-S connect
-                if (north_rid >= 0) begin
-                    south_net[north_rid].flit_in = north_net[rid].flit_out;
-                    south_net[north_rid].req_in = north_net[rid].req_out;
-                    north_net[rid].ack_out = south_net[north_rid].ack_in;
-                    north_net[rid].flit_in = south_net[north_rid].flit_out;
-                    north_net[rid].req_in = south_net[north_rid].req_out;
-                    south_net[north_rid].ack_out = north_net[rid].ack_in;
-                end else begin
-                    north_net[rid].flit_in = '0;
-                    north_net[rid].req_in = 0;
-                    north_net[rid].ack_out = 0;
-                end
-                if (south_rid < 0) begin
-                    south_net[rid].flit_out = '0;
-                    south_net[rid].req_out = 0;
-                    south_net[rid].ack_in = 0;
-                end
-                // E-W connect
-                if (east_rid >= 0) begin
-                    west_net[east_rid].flit_in = east_net[rid].flit_out;
-                    west_net[east_rid].req_in = east_net[rid].req_out;
-                    east_net[rid].ack_out = west_net[east_rid].ack_in;
-                    east_net[rid].flit_in = west_net[east_rid].flit_out;
-                    east_net[rid].req_in = west_net[east_rid].req_out;
-                    west_net[east_rid].ack_out = east_net[rid].ack_in;
-                end else begin
-                    east_net[rid].flit_in = '0;
-                    east_net[rid].req_in = 0;
-                    east_net[rid].ack_out = 0;
-                end
-                if (west_rid < 0) begin
-                    west_net[rid].flit_out = '0;
-                    west_net[rid].req_out = 0;
-                    west_net[rid].ack_in = 0;
+                always_comb begin
+                    // N-S connect
+                    if (NORTH_RID >= 0) begin
+                        south_net[NORTH_RID].flit_in = north_net[RID].flit_out;
+                        south_net[NORTH_RID].req_in = north_net[RID].req_out;
+                        north_net[RID].ack_out = south_net[NORTH_RID].ack_in;
+                        north_net[RID].flit_in = south_net[NORTH_RID].flit_out;
+                        north_net[RID].req_in = south_net[NORTH_RID].req_out;
+                        south_net[NORTH_RID].ack_out = north_net[RID].ack_in;
+                    end else begin
+                        north_net[RID].flit_in = '0;
+                        north_net[RID].req_in = 0;
+                        north_net[RID].ack_out = 0;
+                    end
+                    if (SOUTH_RID < 0) begin
+                        south_net[RID].flit_out = '0;
+                        south_net[RID].req_out = 0;
+                        south_net[RID].ack_in = 0;
+                    end
+                    // E-W connect
+                    if (EAST_RID >= 0) begin
+                        west_net[EAST_RID].flit_in = east_net[RID].flit_out;
+                        west_net[EAST_RID].req_in = east_net[RID].req_out;
+                        east_net[RID].ack_out = west_net[EAST_RID].ack_in;
+                        east_net[RID].flit_in = west_net[EAST_RID].flit_out;
+                        east_net[RID].req_in = west_net[EAST_RID].req_out;
+                        west_net[EAST_RID].ack_out = east_net[RID].ack_in;
+                    end else begin
+                        east_net[RID].flit_in = '0;
+                        east_net[RID].req_in = 0;
+                        east_net[RID].ack_out = 0;
+                    end
+                    if (WEST_RID < 0) begin
+                        west_net[RID].flit_out = '0;
+                        west_net[RID].req_out = 0;
+                        west_net[RID].ack_in = 0;
+                    end
                 end
             end
         end
-    end
+    endgenerate
 
     // Connect cores to local ports (pack/unpack flits)
     genvar c;
     generate
         for (c = 0; c < NUM_CORES; c++) begin : gen_core_connect
-            int rid = CORE_ROUTER_MAP[c];
+            localparam int rid = CORE_ROUTER_MAP[c];
             // Pack core to flit (to local in)
             always_comb begin
                 generic_flit_t core_flit;
@@ -199,7 +202,7 @@ module onchip_mem_network #(
     genvar t;
     generate
         for (t = 0; t < NUM_TILES; t++) begin : gen_tile_connect
-            int rid = TILE_ROUTER_MAP[t];
+            localparam int rid = TILE_ROUTER_MAP[t];
             // Unpack from local out to tile
             always_comb begin
                 if (local_net[rid].req_out) begin
@@ -236,7 +239,7 @@ module onchip_mem_network #(
 
     // External mem connect (to bottom-right router)
     localparam int EXT_ROUTER_ID = (ROUTER_ROWS-1) * ROUTER_COLS + (ROUTER_COLS-1);
-    int ext_rid = EXT_ROUTER_ID;
+    localparam int ext_rid = EXT_ROUTER_ID;
 
     // Pack ext to flit (to local in)
     always_comb begin
