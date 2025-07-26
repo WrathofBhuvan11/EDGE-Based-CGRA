@@ -72,54 +72,55 @@ module switching_network #(
     endgenerate
 
     // Connect mesh links: N-S, E-W (boundary null)
-    always_comb begin
-        for (int rr = 0; rr < GRID_ROWS; rr++) begin
-            for (int rc = 0; rc < GRID_COLS; rc++) begin
-                int rid = rr * GRID_COLS + rc;
-                int north_rid = (rr > 0) ? (rr-1) * GRID_COLS + rc : -1;
-                int south_rid = (rr < GRID_ROWS-1) ? (rr+1) * GRID_COLS + rc : -1;
-                int east_rid = (rc < GRID_COLS-1) ? rr * GRID_COLS + (rc+1) : -1;
-                int west_rid = (rc > 0) ? rr * GRID_COLS + (rc-1) : -1;
-
-                // N-S connect
-                if (north_rid >= 0) begin
-                    south_net[north_rid].flit_in = north_net[rid].flit_out;
-                    south_net[north_rid].req_in = north_net[rid].req_out;
-                    north_net[rid].ack_out = south_net[north_rid].ack_in;
-                    north_net[rid].flit_in = south_net[north_rid].flit_out;
-                    north_net[rid].req_in = south_net[north_rid].req_out;
-                    south_net[north_rid].ack_out = north_net[rid].ack_in;
-                end else begin
-                    north_net[rid].flit_in = '0;
-                    north_net[rid].req_in = 0;
-                    north_net[rid].ack_out = 0;
-                end
-                if (south_rid < 0) begin
-                    south_net[rid].flit_out = '0;
-                    south_net[rid].req_out = 0;
-                    south_net[rid].ack_in = 0;
-                end
-                // E-W connect
-                if (east_rid >= 0) begin
-                    west_net[east_rid].flit_in = east_net[rid].flit_out;
-                    west_net[east_rid].req_in = east_net[rid].req_out;
-                    east_net[rid].ack_out = west_net[east_rid].ack_in;
-                    east_net[rid].flit_in = west_net[east_rid].flit_out;
-                    east_net[rid].req_in = west_net[east_rid].req_out;
-                    west_net[east_rid].ack_out = east_net[rid].ack_in;
-                end else begin
-                    east_net[rid].flit_in = '0;
-                    east_net[rid].req_in = 0;
-                    east_net[rid].ack_out = 0;
-                end
-                if (west_rid < 0) begin
-                    west_net[rid].flit_out = '0;
-                    west_net[rid].req_out = 0;
-                    west_net[rid].ack_in = 0;
-                end
+    generate
+        for (genvar rr = 0; rr < GRID_ROWS; rr++) begin
+            for (genvar rc = 0; rc < GRID_COLS; rc++) begin
+              localparam int rid = rr * GRID_COLS + rc;
+              localparam int north_rid = (rr > 0) ? (rr-1) * GRID_COLS + rc : -1;
+              localparam int south_rid = (rr < GRID_ROWS-1) ? (rr+1) * GRID_COLS + rc : -1;
+              localparam int east_rid = (rc < GRID_COLS-1) ? rr * GRID_COLS + (rc+1) : -1;
+              localparam int west_rid = (rc > 0) ? rr * GRID_COLS + (rc-1) : -1;
+              always_comb begin
+                   // N-S connect
+                   if (north_rid >= 0) begin
+                       south_net[north_rid].flit_in = north_net[rid].flit_out;
+                       south_net[north_rid].req_in = north_net[rid].req_out;
+                       north_net[rid].ack_out = south_net[north_rid].ack_in;
+                       north_net[rid].flit_in = south_net[north_rid].flit_out;
+                       north_net[rid].req_in = south_net[north_rid].req_out;
+                       south_net[north_rid].ack_out = north_net[rid].ack_in;
+                   end else begin
+                       north_net[rid].flit_in = '0;
+                       north_net[rid].req_in = 0;
+                       north_net[rid].ack_out = 0;
+                   end
+                   if (south_rid < 0) begin
+                       south_net[rid].flit_out = '0;
+                       south_net[rid].req_out = 0;
+                       south_net[rid].ack_in = 0;
+                   end
+                   // E-W connect
+                   if (east_rid >= 0) begin
+                       west_net[east_rid].flit_in = east_net[rid].flit_out;
+                       west_net[east_rid].req_in = east_net[rid].req_out;
+                       east_net[rid].ack_out = west_net[east_rid].ack_in;
+                       east_net[rid].flit_in = west_net[east_rid].flit_out;
+                       east_net[rid].req_in = west_net[east_rid].req_out;
+                       west_net[east_rid].ack_out = east_net[rid].ack_in;
+                   end else begin
+                       east_net[rid].flit_in = '0;
+                       east_net[rid].req_in = 0;
+                       east_net[rid].ack_out = 0;
+                   end
+                   if (west_rid < 0) begin
+                       west_net[rid].flit_out = '0;
+                       west_net[rid].req_out = 0;
+                       west_net[rid].ack_in = 0;
+                   end
+               end
             end
-        end
-    end
+        end 
+    endgenerate
 
     // Connect E-nodes to local ports (operand signals to local_net; FLIT_TYPE=0)
     genvar row, col;
@@ -127,7 +128,6 @@ module switching_network #(
         for (row = 0; row < GRID_ROWS; row++) begin : gen_connect_rows
             for (col = 0; col < GRID_COLS; col++) begin : gen_connect_cols
                 localparam int RID = row * GRID_COLS + col;
-                int rid = row * GRID_COLS + col;
                 // From E-node to router local in (sender signals; pack to generalised flit, unused mem fields 0)
                 always_comb begin
                     generic_flit_t op_flit;
@@ -144,19 +144,19 @@ module switching_network #(
                     op_flit.last_flit = 1; // Single-flit
                     op_flit.src_core = 0;
 
-                    local_net[rid].flit_in = op_flit;
-                    local_net[rid].req_in = in_req[RID];
-                    out_ack[RID] = local_net[rid].ack_out;
+                    local_net[RID].flit_in = op_flit;
+                    local_net[RID].req_in = in_req[RID];
+                    out_ack[RID] = local_net[RID].ack_out;
                 end
 
                 // From router local out to E-node (receiver signals; unpack from generalised)
                 always_comb begin
-                    generic_flit_t resp_flit = local_net[rid].flit_out;
+                    generic_flit_t resp_flit = local_net[RID].flit_out;
                     out_operand[RID] = resp_flit.operand;
                     out_dest_instr[RID] = resp_flit.dest_instr;
                     out_dest_slot[RID] = resp_flit.dest_slot;
-                    out_req[RID] = local_net[rid].req_out;
-                    local_net[rid].ack_in = in_ack[RID];  // Backpressure from E
+                    out_req[RID] = local_net[RID].req_out;
+                    local_net[RID].ack_in = in_ack[RID];  // Backpressure from E
                 end
             end
         end
