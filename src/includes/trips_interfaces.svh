@@ -28,8 +28,7 @@ interface control_if;
     logic [(`MAX_INFLIGHT_BLOCKS-1):0] block_id;  // In-flight block ID
     logic [1:0] morph_mode;         // Set morph (D/T/S)
     logic revitalize;               // S-morph loop reset
-
-    modport master (output fetch_req, output block_addr, output morph_mode, output revitalize, input commit, input branch_taken);
+    modport master (output fetch_req, output block_addr, output morph_mode, output revitalize, output block_id, input commit, input branch_taken);
     modport slave (input fetch_req, input block_addr, input morph_mode, input revitalize, output commit, output branch_taken);
 endinterface
 
@@ -75,19 +74,21 @@ interface instr_fetch_if;
     modport i_tile (input fetch_req, input block_addr, output instructions, output header, output ready);
 endinterface
 
+
 // On-chip mem network if (to tiles; polymorph cache/SRF)
 interface mem_tile_if;
     logic [31:0] addr;              // Tile address
     logic read_req;                 // Read
     logic write_req;                // Write
-    reg_data_t [3:0] data_wide;     // Wide data for SRF (256-bit/row in S-morph)
+    reg_data_t [7:0] data_wide;     // Wide data for SRF (256-bit; 8x32-bit reg_data_t)
+    logic data_wide_valid;          // valid flag for wide transfers (multi-flit/SRF)
+    reg_data_t store_data;          // std store data for non-wide (L/S ops)
     logic config_srf;               // Config as SRF (no tags, direct access)
     logic ack;                      // Acknowledge
 
-    modport core (output addr, output read_req, output write_req, output data_wide, output config_srf, input ack);
-    modport tile (input addr, input read_req, input write_req, input data_wide, input config_srf, output ack);
+    modport core (output addr, output read_req, output write_req, output data_wide, output data_wide_valid, output store_data, output config_srf, input ack);
+    modport tile (input addr, input read_req, input write_req, input data_wide, input data_wide_valid, input store_data, input config_srf, output ack);
 endinterface
-
 
 // Router interface with generic_flit_t
 interface router_if;
@@ -104,6 +105,5 @@ interface router_if;
     modport west (input flit_in, input req_in, output ack_out, output flit_out, output req_out, input ack_in);
     modport iolocal (input flit_in, input req_in, output ack_out, output flit_out, output req_out, input ack_in);
 endinterface
-
 
 `endif // TRIPS_INTERFACES_SVH
