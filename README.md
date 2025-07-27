@@ -50,7 +50,7 @@ trips_processor.sv (Top: Chip; Instances: trips_core_inst[0:3] (4 cores), mem_ti
 └── onchip_mem_network.sv (Instance: mem_net; Count: 1)  // Switched 2D; wide channels for SRF (S-morph)
     └── router.sv (Instance router_inst- 5-port XY with RR arb, wormhole, buffers)
 ```
-#### - trips_top.sv: The trips_top.sv module acts as the main chip wrapper for the TRIPS processor, bringing together four cores, 32 memory tiles, and on-chip networks to build the full system. It oversees top-level connections, clock signals, resets, and external links like memory controllers, while enabling reconfiguration for D, T, and S modes through signal propagation. This setup promotes flexibility, supporting different grid and frame sizes for block-based execution.
+#### - trips_processor.sv: The trips_processor.sv module acts as the main chip wrapper for the TRIPS processor, bringing together four cores, 32 memory tiles, and on-chip networks to build the full system. It oversees top-level connections, clock signals, resets, and external links like memory controllers, while enabling reconfiguration for D, T, and S modes through signal propagation. This setup promotes flexibility, supporting different grid and frame sizes for block-based execution.
 
 #### - trips_core.sv: The trips_core.sv module defines one adaptable core, including the 4x4 execution grid, G, R, I, and D tiles, plus internal networks, with settings that adjust for modes like frame splitting for threads or stream support for data parallelism. It manages dataflow inside the core by directing operands and controls, allowing up to 128 instructions per block via frame management. Its flexible design makes scaling to bigger grids straightforward, fitting various row, column, and frame setups.
 
