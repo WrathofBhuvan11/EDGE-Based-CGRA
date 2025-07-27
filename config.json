@@ -1,8 +1,8 @@
 {
   "DESIGN_NAME": "trips_processor",
   "VERILOG_FILES": [
-      "dir::src/includes/trips_config.svh",
       "dir::src/includes/trips_defines.svh",
+      "dir::src/includes/trips_config.svh",
       "dir::src/includes/trips_interfaces.svh",
       "dir::src/includes/trips_isa.svh",
       "dir::src/includes/trips_params.svh",
@@ -10,6 +10,7 @@
       "dir::src/reservation_station.sv",
       "dir::src/router.sv",
       "dir::src/alu_fp_unit.sv",
+      "dir::src/predicate_handler.sv",
       "dir::src/block_controller.sv",
       "dir::src/mem_tile.sv",
       "dir::src/onchip_mem_network.sv",
