@@ -1,0 +1,3 @@
+openlane config.json
+Lint only
+verilator --lint-only --Wall --Wno-DECLFILENAME --Wno-EOFNEWLINE --top-module trips_processor --Wno-fatal --relative-includes --Werror-LATCH -f filelists.f --debug --gdbbt
