@@ -21,7 +21,6 @@
       "dir::src/g_tile.sv",
       "dir::src/i_tile.sv",
       "dir::src/lsid_unit.sv",
-      "dir::src/isa_decoder.sv",
       "dir::src/trips_core.sv",
       "dir::src/trips_processor.sv"
    ],
