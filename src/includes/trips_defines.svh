@@ -29,7 +29,7 @@
 `define I_CACHE_SIZE        6144    // 6KB I-cache (banked per row)
 `define D_CACHE_SIZE        2048    // 2KB L1 D-cache (banked)
 `define L2_TILE_SIZE        32768   // 32KB per memory tile
-`define NUM_L2_TILES        32      // 32 tiles for 1MB NUCA L2/SRF
+`define NUM_L2_TILES        32      //32 tiles for 1MB NUCA L2/SRF
 
 // Execution latencies (cycles, from polymorphous paper simulations)
 `define ALU_LATENCY         1       // Basic ALU op
