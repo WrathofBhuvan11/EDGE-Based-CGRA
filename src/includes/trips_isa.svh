@@ -60,3 +60,4 @@
 `define ENCODE_G_OP(op, targets_array) {op, `CLASS_G, targets_array, /* etc. */ }
 
 `endif // TRIPS_ISA_SVH
+
