@@ -72,6 +72,8 @@ module i_tile (
         end
     end
 
+    //Instruction decoder: Parses raw 32-bit word to instr_t (class/opcode/targets/slot/pred/LSID/imms/%bit).
+    // Assumes bit layout (inferred: [31:29 res, 29 pred_en, 27 pred_true, 26:24 class, 23:19 lsid/exit, 18:0 imm/bit; targets packed in imm for G).
     // Decode function (combo; parse raw to instr_t with auto LSID/EXIT_ID)
     function automatic instr_t decode_instr(input logic [31:0] raw_instr);
         instr_t dec;
