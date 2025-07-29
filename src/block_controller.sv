@@ -21,9 +21,10 @@ module block_controller (
     input logic commit,                         // Block commit input signal (from core/e_tiles outputs met)
     input logic branch_taken,                   // Branch outcome input (for next_addr prediction)
     input logic [4:0] exit_id,                  // EXIT_ID input from branch instr (TASL B class, multiple exits)
-    input block_header_t header,                // Block header input (store_mask/num_reg_writes from I-tile)
+    input block_header_t header,                // Block header input (store mask/reg writes from I-tile)
     input logic fetch_req,                      // Added input for fetch request (from G-tile external/internal)
     input logic ready,                          // Added input for fetch ready (from I-tile)
+    input logic [31:0] block_addr,              // Current block address input (base for next prediction)
     output logic [(`MAX_INFLIGHT_BLOCKS-1):0] inflight_blocks,  // In-flight blocks bitmap output
     output logic speculation_flush,             // Speculation flush output (on mispredict/mis-exit)
     output logic [31:0] next_block_addr        // Next predicted block addr output (for fetch)
@@ -54,8 +55,9 @@ module block_controller (
             counter <= 0;  // S-morph counter reset
             speculation_flush <= 0;
             //revitalize <= 0;
-            next_block_addr <= 0;
-            predicted_offset <= {32{32'h100}};  // Simplified default offsets; load from mem/config in real
+            for (int i = 0; i < 32; i++) begin
+                predicted_offset[i] <= 32'h100;  // Simplified default offsets; load from mem/config in real
+            end
         end else begin
             state <= next_state;
             // Update counters on events (e.g., from e/d/r tiles via signals; simplified assume inputs increment)
@@ -86,8 +88,8 @@ module block_controller (
             IDLE: if (fetch_req) next_state = FETCHING;
             FETCHING: if (ready) begin
                 next_state = EXECUTING;
-                inflight_blocks <= {inflight_blocks[`MAX_INFLIGHT_BLOCKS-2:0], 1'b1};  // Add new block
-                counter <= morph_config.morph_mode == `MORPH_S ? 8'd16 : 0;  // Example S-morph iterations
+                inflight_blocks = {inflight_blocks[`MAX_INFLIGHT_BLOCKS-2:0], 1'b1};  // Add new block
+                counter = morph_config.morph_mode == `MORPH_S ? 8'd16 : 0;  // Example S-morph iterations
             end
             EXECUTING: if (block_complete) next_state = COMMITTING;
             COMMITTING: next_state = IDLE;
@@ -99,9 +101,9 @@ module block_controller (
     // Branch/EXIT_ID handling: Update next_addr on taken (use EXIT_ID to index predicted_offset table)
     always_comb begin
         if (branch_taken) begin
-            next_block_addr <= next_block_addr + predicted_offset[exit_id];  // Offset from table (loaded/configured)
+            next_block_addr = block_addr + predicted_offset[exit_id];  // Use input block_addr as base
         end else begin
-            next_block_addr <= next_block_addr + 32'h100;  // Default sequential (simplified)
+            next_block_addr = block_addr + 32'h100;  // Sequential default offset
         end
     end
 
