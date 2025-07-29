@@ -47,8 +47,10 @@ module reservation_station #(
     // Map/store incoming operand to slot if match dest_instr (node ID) and slot
     always_ff @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
-            operand_valid <= '0;
             ack_out <= 0;
+            for (int f = 0; f < FRAMES; f++) begin
+                operand_valid[f] <= '0;
+            end
         end else begin
             ack_out <= 0;
             if (req_in) begin
