@@ -31,9 +31,10 @@ module d_tile #(
     output logic [31:0] mem_tile_addr,      // Addr output to on-chip net (L2)
     output logic mem_tile_read_req,         // Read req output to net
     output logic mem_tile_write_req,        // Write req output to net
-    output reg_data_t [3:0] mem_tile_data_wide,  // Wide data output for SRF (256-bit = 4x64-bit)
+    input reg_data_t [3:0] mem_tile_wr_data_wide,  // Wide data input for SRF
     output logic mem_tile_config_srf,       // SRF config output to net
-    input logic mem_tile_ack                // Ack input from net
+    input logic mem_tile_ack,               // Ack input from net
+    output reg_data_t [3:0] mem_tile_rd_data_wide  // Wide data output for SRF (256-bit = 4x64-bit)
 );
 
     // Internal params (L1 2KB total, 4 banks ~512B each, 2-way assoc, 64B line)
@@ -53,7 +54,7 @@ module d_tile #(
     logic [ASSOC-1:0] lru_ram [SETS-1:0];   // LRU bits (1-bit for 2-way: 0=way0 LRU)
 
     // Internal signals
-    logic is_srf_mode = morph_config.srf_enable;  // SRF config (no tags/direct)
+    logic is_srf_mode = morph_config.srf_enable;  // SRF enabled
     logic [SET_BITS-1:0] set_idx = addr[SET_BITS + BYTE_OFF_BITS -1 : BYTE_OFF_BITS];
     logic [BYTE_OFF_BITS-1:0] byte_off = addr[BYTE_OFF_BITS-1:0];
     logic [TAG_BITS-1:0] tag = addr[ADDR_WIDTH-1 : SET_BITS + BYTE_OFF_BITS];
@@ -62,104 +63,149 @@ module d_tile #(
     logic [63:0] line_data;                 // Read line (64B=512 bits; simplified 64-bit out)
     logic ack_lsid;                         // Declared wire for lsid_unit ack (implicit -> explicit; now gated in FSM)
 
+    logic set_complete;                     // Signal to set complete in LSID
+    logic [4:0] set_lsid;                   // LSID to set
+    reg_data_t set_data;              // Data to set in LSID queue
+
     // FSM for rd/wr/miss/replace/SRF transfers
     typedef enum logic [2:0] {IDLE, CACHE_RD, CACHE_WR, CACHE_MISS, SRF_RD, SRF_WR, SRF_GS} state_t;
-    state_t state, next_state;
+    state_t state;
 
-    // State transition
+    // State transition and logic
     always_ff @(posedge clk or negedge rst_n) begin
-        if (!rst_n) state <= IDLE;
-        else state <= next_state;
-    end
-
-    // Next state and logic
-    always_comb begin
-        next_state = state;
-        hit = 0;
-        ack = 0;
-        load_data = '0;
-        mem_tile_read_req = 0;
-        mem_tile_write_req = 0;
-        mem_tile_data_wide = '0;
-        mem_tile_config_srf = is_srf_mode;
-        mem_tile_addr = addr;
-        internal_hit = 0;
-        hit_way = 0;
-
-        case (state)
-            IDLE: begin
-                if (!is_srf_mode) begin  // Cache mode
-                    if (load_req) next_state = CACHE_RD;
-                    else if (store_req) next_state = CACHE_WR;
-                end else begin  // SRF mode
-                    if (load_req) next_state = SRF_RD;
-                    else if (store_req) next_state = SRF_WR;
-                    else next_state = SRF_GS;  // Gather/scatter if special type (simplified)
-                end
-            end
-            CACHE_RD: begin
-                // Tag check
-                for (int way = 0; way < ASSOC; way++) begin
-                    if (valid_ram[way][set_idx] && tag_ram[way][set_idx] == tag) begin
-                        internal_hit = 1;
-                        hit_way = way;
-                        // Read data (simplified word; byte_off select)
-                        load_data = data_ram[set_idx * LINE_BYTES + byte_off];  // Assume 32-bit word
-                        hit = 1;
-                        ack = ack_lsid;  // lsid_unit ack (ordered)
-                        next_state = IDLE;
+        if (!rst_n) begin
+            state <= IDLE;
+            hit <= 0;
+            ack <= 0;
+            load_data <= '0;
+            mem_tile_read_req <= 0;
+            mem_tile_write_req <= 0;
+            mem_tile_rd_data_wide <= '0;
+            mem_tile_config_srf <= 0;
+            mem_tile_addr <= 0;
+            internal_hit <= 0;
+            hit_way <= 0;
+            set_complete <= 0;
+            set_lsid <= 0;
+            set_data <= '0;
+        end else begin
+            hit <= 0;
+            ack <= 0;
+            //load_data <= '0;
+            mem_tile_read_req <= 0;
+            mem_tile_write_req <= 0;
+            mem_tile_rd_data_wide <= '0;
+            mem_tile_config_srf <= is_srf_mode;
+            mem_tile_addr <= addr;
+            internal_hit <= 0;
+            hit_way <= 0;
+            set_complete <= 0;  
+            state <= state;  // Default stay
+            case (state)
+                IDLE: begin
+                    if (!is_srf_mode) begin  // Cache mode
+                        if (load_req) state <= CACHE_RD;
+                        else if (store_req) state <= CACHE_WR;
+                    end else begin  // SRF mode
+                        if (load_req) state <= SRF_RD;
+                        else if (store_req) state <= SRF_WR;
+                        else state <= SRF_GS;  // Gather/scatter if special type (simplified)
                     end
                 end
-                if (!internal_hit) next_state = CACHE_MISS;
-            end
-            CACHE_WR: begin
-                // Tag check/alloc
-                internal_hit = 0;
-                for (int way = 0; way < ASSOC; way++) begin
-                    if (valid_ram[way][set_idx] && tag_ram[way][set_idx] == tag) begin
-                        internal_hit = 1;
-                        hit_way = way;
+                CACHE_RD: begin
+                    logic internal_hit_temp = 0;
+                    logic [1:0] hit_way_temp = 0;
+                    // Tag check
+                    for (int way = 0; way < ASSOC; way++) begin
+                        if (valid_ram[way][set_idx] && tag_ram[way][set_idx] == tag) begin
+                            internal_hit_temp = 1;
+                            hit_way_temp = way;
+                            // Read data (simplified word; byte_off select)
+                            //load_data <= data_ram[set_idx * LINE_BYTES + byte_off];  // Assume 32-bit word
+                            mem_tile_rd_data_wide[0] <= data_ram[set_idx * LINE_BYTES + byte_off];  // Use direct for non-blocking
+                            hit <= 1;
+                            ack <= ack_lsid;  // lsid_unit ack (ordered)
+                            // Signal LSID to set complete and data
+                            set_complete <= 1;
+                            set_lsid <= lsid;
+                            set_data <= data_ram[set_idx * LINE_BYTES + byte_off];  // Assume 32-bit word
+                            state <= IDLE;
+                        end
+                    end
+                    if (!internal_hit_temp) state <= CACHE_MISS;
+                    internal_hit <= internal_hit_temp;
+                    hit_way <= hit_way_temp;
+                end
+                CACHE_WR: begin
+                    logic internal_hit_temp = 0;
+                    logic [1:0] hit_way_temp = 0;
+                    // Tag check/alloc
+                    for (int way = 0; way < ASSOC; way++) begin
+                        if (valid_ram[way][set_idx] && tag_ram[way][set_idx] == tag) begin
+                            internal_hit_temp = 1;
+                            hit_way_temp = way;
+                        end
+                    end
+                    if (!internal_hit_temp) begin
+                        // Evict LRU (simplified way0 if lru=0)
+                        hit_way_temp = lru_ram[set_idx][0] ? 1 : 0;
+                        if (dirty_ram[hit_way_temp][set_idx]) mem_tile_write_req <= 1;  // Writeback to L2
+                        tag_ram[hit_way_temp][set_idx] <= tag;
+                        valid_ram[hit_way_temp][set_idx] <= 1;
+                        dirty_ram[hit_way_temp][set_idx] <= 1;
+                        lru_ram[set_idx] <= ~lru_ram[set_idx];  // Flip LRU
+                    end else dirty_ram[hit_way_temp][set_idx] <= 1;
+                    // Write data
+                    data_ram[set_idx * LINE_BYTES + byte_off] <= store_data;
+                    ack <= ack_lsid;  // Gate with ordered ack
+                    // For stores, signal complete (no data for loads)
+                    set_complete <= 1;
+                    set_lsid <= lsid;
+                    set_data <= '0;  
+                    state <= IDLE;
+                    internal_hit <= internal_hit_temp;
+                    hit_way <= hit_way_temp;
+                end
+                CACHE_MISS: begin
+                    mem_tile_read_req <= 1;  // Fetch from L2
+                    if (mem_tile_ack) begin
+                        // Fill (simplified; assume rd_data_wide to ram)
+                        state <= CACHE_RD;  // Retry
                     end
                 end
-                if (!internal_hit) begin
-                    // Evict LRU (simplified way0 if lru=0)
-                    hit_way = lru_ram[set_idx][0] ? 1 : 0;
-                    if (dirty_ram[hit_way][set_idx]) mem_tile_write_req = 1;  // Writeback to L2
-                    tag_ram[hit_way][set_idx] = tag;
-                    valid_ram[hit_way][set_idx] = 1;
-                    dirty_ram[hit_way][set_idx] = 1;
-                    lru_ram[set_idx] = ~lru_ram[set_idx];  // Flip LRU
-                end else dirty_ram[hit_way][set_idx] = 1;
-                // Write data
-                data_ram[set_idx * LINE_BYTES + byte_off] = store_data[7:0];  // Byte write simplified
-                ack = ack_lsid;  // Gate with ordered ack
-                next_state = IDLE;
-            end
-            CACHE_MISS: begin
-                mem_tile_read_req = 1;  // Fetch from L2
-                if (mem_tile_ack) begin
-                    // Fill (simplified; assume data_wide to ram)
-                    next_state = CACHE_RD;  // Retry
+                SRF_RD: begin
+                    // Direct read (wide)
+                    for (int i = 0; i < WIDE_WIDTH/8; i++) begin
+                        mem_tile_rd_data_wide[i/64] <= data_ram[addr + i]; // Pack wide
+                    end
+                    ack <= ack_lsid;  // Gate with lsid_unit ack (ordered)
+                    // Signal complete for SRF load
+                    set_complete <= 1;
+                    set_lsid <= lsid;
+                    set_data <= data_ram[addr];  
+                    state <= IDLE;
                 end
-            end
-            SRF_RD: begin
-                // Direct read (wide)
-                for (int i = 0; i < WIDE_WIDTH/8; i++) mem_tile_data_wide[i/64] = data_ram[addr + i];  // Pack wide
-                ack = ack_lsid;  // Gate with lsid_unit ack (ordered)
-                next_state = IDLE;
-            end
-            SRF_WR: begin
-                // Direct write (wide)
-                for (int i = 0; i < WIDE_WIDTH/8; i++) data_ram[addr + i] = mem_tile_data_wide[i/64][7:0];  // Unpack
-                ack = ack_lsid;  // Gate with ordered ack
-                next_state = IDLE;
-            end
-            SRF_GS: begin
-                // Gather/scatter (simplified strided; assume transfer_type/stride in addr high bits)
-                ack = ack_lsid;  // Gate with ordered ack
-                next_state = IDLE;
-            end
-        endcase
+                SRF_WR: begin
+                    // Direct write (wide)
+                    for (int i = 0; i < WIDE_WIDTH/8; i++) begin
+                        data_ram[addr + i] <= mem_tile_wr_data_wide[i/64][7:0]; // Unpack
+                    end
+                    ack <= ack_lsid;  // Gate with ordered ack
+                    set_complete <= 1;
+                    set_lsid <= lsid;
+                    set_data <= '0;  
+                    state <= IDLE;
+                end
+                SRF_GS: begin
+                    // Gather/scatter (simplified strided; assume transfer_type/stride in addr high bits)
+                    ack <= ack_lsid;  // Gate with ordered ack
+                    set_complete <= 1;
+                    set_lsid <= lsid;
+                    set_data <= '0; 
+                    state <= IDLE;
+                end
+            endcase
+        end
     end
 
     // Instantiate lsid_unit (for L/S ordering)
@@ -171,11 +217,12 @@ module d_tile #(
         .store_req(store_req),
         .addr(addr),
         .store_data(store_data),
-        .load_data(load_data),
-        .ack(ack_lsid)  // Internal ack for order
+        .set_complete(set_complete),    // set complete
+        .set_lsid(set_lsid),            // LSID to set
+        .set_data(set_data),            // data from cache
+        .load_data(load_data),          // Output driven solely by LSID
+        .ack(ack_lsid)                  // Internal ack for order
     );
 
     // Big-endian handling: MSB first;
-
 endmodule
-
