@@ -35,29 +35,33 @@ module isa_decoder (
         decoded_instr.bit_extract = raw_instr[21:20];  // %bit 2-bit for C
         // Targets: Assumed packed in imm for G (simplified; real separate fields/encoding)
         decoded_instr.targets[0].target_instr = raw_instr[15:8];  // Target0 num
-        decoded_instr.targets[0].operand_pos = raw_instr[1:0];    // Slot
+        decoded_instr.targets[0].slot = raw_instr[1:0];    // Slot
         decoded_instr.targets[0].valid = 1;                       // Assume valid if non-zero
         decoded_instr.targets[1].target_instr = raw_instr[23:16]; // Target1 (example overlap; adjust)
-        decoded_instr.targets[1].operand_pos = raw_instr[3:2];
+        decoded_instr.targets[1].slot = raw_instr[3:2];
         decoded_instr.targets[1].valid = raw_instr[23:16] != 0;
 
         // Auto LSID/EXIT_ID if 0 (increment counters)
         if (decoded_instr.isa_class inside {`CLASS_L, `CLASS_S} && decoded_instr.lsid == 0) begin
             decoded_instr.lsid = lsid_auto_counter;
-            lsid_auto_counter += 1;
         end
         if (decoded_instr.isa_class == `CLASS_B && decoded_instr.exit_id == 0) begin
             decoded_instr.exit_id = exit_auto_counter;
-            exit_auto_counter += 1;
         end
     end
 
-    // Counter reset (on new block fetch-from G-tile via I-tile)
+    // Counter increment (sequential always_ff)
     always_ff @(posedge clk or negedge rst_n) begin
-        if (!rst_n || fetch_new_block) begin  // Assume external fetch_new_block signal
+        if (!rst_n || fetch_new_block) begin
             lsid_auto_counter <= 0;
             exit_auto_counter <= 0;
+        end else begin
+            if (decoded_instr.isa_class inside {`CLASS_L, `CLASS_S} && decoded_instr.lsid == 0) begin
+                lsid_auto_counter <= lsid_auto_counter + 1;
+            end
+            if (decoded_instr.isa_class == `CLASS_B && decoded_instr.exit_id == 0) begin
+                exit_auto_counter <= exit_auto_counter + 1;
+            end
         end
     end
-
 endmodule
