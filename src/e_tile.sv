@@ -120,6 +120,11 @@ module e_tile #(
             dest_instr_out <= '0;
             dest_slot_out <= '0;
             req_out <= 0;
+            read_req <= 0; // Drive undriven output
+            write_req <= 0;
+            reg_id <= '0;
+            queue_id <= '0;
+            write_data <= '0;
         end else begin
             if (alu_valid) begin
                 // For each target (from instr_in.targets[0:1])
@@ -141,7 +146,7 @@ module e_tile #(
                             operand_out.valid <= 1;             // Valid
                             operand_out.source_instr <= COL_ID * GRID_ROWS + ROW_ID;  // Source node ID (for debug)
                             dest_instr_out <= instr_in.targets[tgt].target_instr;  // Target num
-                            dest_slot_out <= instr_in.targets[tgt].operand_pos;    // Slot (0/1/p)
+                            dest_slot_out <= instr_in.targets[tgt].slot;    // Slot (0/1/p)
                             req_out <= 1;               // Request route
                             // Wait for ack_in (simple retry)
                             if (ack_in) pending_ack[tgt] <= 0;
@@ -149,6 +154,21 @@ module e_tile #(
                         end
                     end
                 end
+            end
+            // Handle reg read 
+            read_req <= (instr_in.opcode == `OP_READ_REG && fire_ready && pred_valid) ? 1 : 0;  // Drive based on instr
+            if (read_req) begin
+                reg_id <= instr_in.reg_id;  // Set from instr
+                queue_id <= instr_in.reg_id[4:0];
+                if (read_data != '0) operand_out.data <= read_data;  // integrate to res_station
+            end
+            // Use alignment_err
+            if (alignment_err) begin
+                operand_out.valid <= 0;  // Invalidate on err
+            end
+            // Mem response handling 
+            if (hit && ack_mem) begin
+                operand_out.data <= load_data;  // Forward load to output
             end
         end
     end
