@@ -23,17 +23,16 @@ module mem_tile #(
     parameter LINE_SIZE = 64,               // Cache line size (bytes; 512 sets for 2-way 32KB)
     parameter ASSOC_WAYS = 2,               // 2-way associative for cache mode
     parameter ADDR_WIDTH = 32,              // Address width
-    parameter WIDE_WIDTH = 256,             // Wide SRF channel (bits; 4x64-bit for 4x4 grid row, 
-      					    // assuming reg_data_t=64-bit)
+    parameter WIDE_WIDTH = 256,             // Wide SRF channel (bits; 8x32-bit reg_data_t)
     parameter SET_BITS = $clog2(TILE_SIZE / (LINE_SIZE * ASSOC_WAYS)),  // 9 bits for 512 sets
     parameter TAG_BITS = ADDR_WIDTH - (SET_BITS + $clog2(LINE_SIZE))   // Tag width
 ) (
     input clk,                        // Tile clock
     input rst_n,                      // Active-low reset
     input morph_config_t morph_config,      // Morph config (srf_enable for SRF mode)
-    mem_tile_if.tile mem_tile_if,           // Interface from on-chip network (addr/rd/wr/data_wide/config_srf)
-    //Direct wide SRF data/valid from near cores (conditional high-bandwidth input; README.md: wide paths to near cores for data-parallel; polymorphous PDF Sec. 5: optimizes SRF use with special high bandwidth interface to adjacent processors, valid for sync/multi-flit)
-    input reg_data_t [3:0] srf_wide_data,   // Direct wide data input for SRF (256-bit = 4x64-bit; bypass net for near cores)
+    mem_tile_if.slave mem_tile_if,           // Interface from on-chip network (addr/rd/wr/wr_data_wide/config_srf)
+    //Direct wide SRF data/valid from near cores conditional high-bandwidth input;  optimizes SRF use with special high bandwidth interface to adjacent processors, valid for sync/multi-flit
+    input reg_data_t [7:0] srf_wide_data,   // Direct wide data input for SRF (256-bit = 8x32-bit; bypass net for near cores)
     input logic srf_wide_valid              // Valid flag for direct wide transfer (sync signal; hold until processed)
 );
 
@@ -57,6 +56,11 @@ module mem_tile #(
     logic rd_en, wr_en;                     // Internal rd/wr enables
     logic use_direct_wide;                  // Flag to use direct srf_wide_data/valid (for near-core optimization)
 
+    // Combinational signals for hit detection and eviction way calculation
+    logic hit_comb;
+    logic [1:0] hit_way_comb;
+    logic evict_way_comb;
+
     // Morph mode detection
     assign is_srf_mode = morph_config.srf_enable && mem_tile_if.config_srf;
 
@@ -69,6 +73,20 @@ module mem_tile #(
         rd_en = mem_tile_if.read_req;
         wr_en = mem_tile_if.write_req;
         use_direct_wide = is_srf_mode && srf_wide_valid;  // Use direct input if valid (near-core bypass)
+    end
+
+    // Combinational logic for hit detection and eviction way calculation
+    always_comb begin
+        hit_comb = 0;
+        hit_way_comb = 0;  // Default to 0
+        evict_way_comb = lru_array[set_idx] ? 0 : 1;  // Compute eviction way
+        
+        for (int way = 0; way < ASSOC_WAYS; way++) begin
+            if (valid_array[way][set_idx] && (tag_array[way][set_idx] == tag)) begin
+                hit_comb = 1;
+                hit_way_comb = way[1:0];  // Assign the hitting way
+            end
+        end
     end
 
     // Cache/SRF mode FSM (simplified: Handle rd/wr, replacement, SRF wide/valid/gather/scatter)
@@ -89,129 +107,123 @@ module mem_tile #(
         if (!rst_n) begin
             state <= IDLE;
             // Reset arrays (simplified; in practice, use init loop or mem model)
-            valid_array <= '0;
-            dirty_array <= '0;
-            lru_array <= '0;
+            for (int way = 0; way < ASSOC_WAYS; way++) begin
+                for (int set = 0; set < (1 << SET_BITS); set++) begin
+                    valid_array[way][set] = '0;
+                    dirty_array[way][set] = '0;
+                end
+            end
+            for (int set = 0; set < (1 << SET_BITS); set++) begin
+                lru_array[set] = '0;
+            end
         end else begin
-            state <= next_state;
-        end
-    end
+            // Defaults (hold previous or zero)
 
-    // Next state and output logic
-    always_comb begin
-        next_state = state;
-        mem_tile_if.ack = 0;
-        hit = 0;
-        hit_way = 0;
-        mem_tile_if.data_wide = '0;  // Default zero
-
-        case (state)
-            IDLE: begin
-                if (!is_srf_mode) begin  // Cache mode
-                    if (rd_en) begin
-                        next_state = CACHE_RD_HIT;
-                    end else if (wr_en) begin
-                        next_state = CACHE_WR;
-                    end
-                end else begin  // SRF mode
-                    if (rd_en && use_direct_wide) begin  // Direct wide if valid (near-core)
-                        next_state = SRF_RD_WIDE;
-                    end else if (wr_en && use_direct_wide) begin
-                        next_state = SRF_WR_WIDE;
-                    end else if (rd_en || wr_en) begin  // Standard or gather/scatter
-                        next_state = SRF_GATHER_SCATTER;
+            case (state)
+                IDLE: begin
+                    if (!is_srf_mode) begin  // Cache mode
+                        if (rd_en) begin
+                            next_state <= CACHE_RD_HIT;
+                        end else if (wr_en) begin
+                            next_state <= CACHE_WR;
+                        end
+                    end else begin  // SRF mode
+                        if (rd_en && use_direct_wide) begin  // Direct wide if valid (near-core)
+                            next_state <= SRF_RD_WIDE;
+                        end else if (wr_en && use_direct_wide) begin
+                            next_state <= SRF_WR_WIDE;
+                        end else if (rd_en || wr_en) begin  // Standard or gather/scatter
+                            next_state <= SRF_GATHER_SCATTER;
+                        end
                     end
                 end
-            end
 
-            CACHE_RD_HIT: begin
-                // Read line from data_ram (simplified: Assume byte read; in practice, full line fetch)
-                for (int i = 0; i < LINE_SIZE; i++) begin
-                    // Output data (simplified single-word; extend for wide)
-                    if (i == byte_off) mem_tile_if.data_wide[0] = {24'b0, data_ram[(set_idx * LINE_SIZE * ASSOC_WAYS) + (hit_way * LINE_SIZE) + i]};
-                end
-                mem_tile_if.ack = 1;
-                next_state = IDLE;
-            end
-
-            CACHE_RD_MISS: begin
-                // Miss handling: Evict LRU, fetch from external (via mem_tile_if to network; simplified stall)
-                // Find LRU way (0 if lru=0, 1 if lru=1)
-                logic evict_way = lru_array[set_idx] ? 0 : 1;  // Opposite of current LRU
-                if (dirty_array[evict_way][set_idx]) begin
-                    // Writeback (simplified no-op; signal to network)
-                end
-                // Allocate: Set tag, valid=1, dirty=0, update LRU to evict_way as MRU=1? Wait for fill (assume 1-cycle for sim)
-                tag_array[evict_way][set_idx] = tag;
-                valid_array[evict_way][set_idx] = 1;
-                dirty_array[evict_way][set_idx] = 0;
-                lru_array[set_idx] = (evict_way == 0) ? 0 : 1;  // Set evicted as MRU? LRU flip
-                // Simulate fill: data_ram update omitted for sim
-                next_state = CACHE_RD_HIT;  // Retry as hit
-            end
-
-            CACHE_WR: begin
-                // Write: Check hit or allocate on miss (similar to RD_MISS)
-                hit = 0;
-                for (int way = 0; way < ASSOC_WAYS; way++) begin
-                    if (valid_array[way][set_idx] && (tag_array[way][set_idx] == tag)) begin
-                        hit = 1;
-                        hit_way = way;
-                        // Write byte (simplified)
-                        data_ram[(set_idx * LINE_SIZE * ASSOC_WAYS) + (hit_way * LINE_SIZE) + byte_off] = mem_tile_if.data_wide[0][7:0];  // Assume byte wr
-                        dirty_array[hit_way][set_idx] = 1;
-                        lru_array[set_idx] = (hit_way == 0) ? 1 : 0;  // Update LRU
+                CACHE_RD_HIT: begin
+                    // Read line from data_ram (simplified: Assume byte read; in practice, full line fetch)
+                    for (int i = 0; i < LINE_SIZE; i++) begin
+                        // Output data (simplified single-word; extend for wide)
+                        if (i == byte_off) mem_tile_if.rd_data_wide[0] <= {24'b0, data_ram[(set_idx * LINE_SIZE * ASSOC_WAYS) + (hit_way * LINE_SIZE) + i]};
                     end
+                    mem_tile_if.ack <= 1;
+                    next_state <= IDLE;
                 end
-                if (!hit) begin
-                    // Allocate/evict similar to MISS, then write
-                    logic evict_way = lru_array[set_idx] ? 0 : 1;
+
+                CACHE_RD_MISS: begin
+                    // Miss handling: Evict LRU, fetch from external (via mem_tile_if to network; simplified stall)
+                    // Find LRU way (0 if lru=0, 1 if lru=1)
+                    logic evict_way;
+                    evict_way <= lru_array[set_idx] ? 0 : 1;  // Opposite of current LRU
                     if (dirty_array[evict_way][set_idx]) begin
-                        // Writeback omitted
+                        // Writeback (simplified no-op; signal to network)
                     end
-                    tag_array[evict_way][set_idx] = tag;
-                    valid_array[evict_way][set_idx] = 1;
-                    dirty_array[evict_way][set_idx] = 1;
-                    lru_array[set_idx] = (evict_way == 0) ? 0 : 1;
-                    // Write as above
+                    // Allocate: Set tag, valid=1, dirty=0, update LRU to evict_way as MRU=1? Wait for fill (assume 1-cycle for sim)
+                    tag_array[evict_way][set_idx] <= tag;
+                    valid_array[evict_way][set_idx] <= 1;
+                    dirty_array[evict_way][set_idx] <= 0;
+                    lru_array[set_idx] <= ~lru_array[set_idx];  // Flip LRU
+                    // Simulate fill: data_ram update omitted for sim
+                    next_state <= CACHE_RD_HIT;  // Retry as hit
                 end
-                mem_tile_if.ack = 1;
-                next_state = IDLE;
-            end
 
-            SRF_RD_WIDE: begin
-                // Wide read: Direct RAM access, output full wide data (256 bits from addr); use direct input if valid
-                for (int i = 0; i < WIDE_WIDTH/8; i++) begin
-                    mem_tile_if.data_wide[i/8] = {24'b0, data_ram[addr_internal + i]};
+                CACHE_WR: begin
+                    // Use combinational hit and hit_way
+                    hit <= hit_comb;
+                    hit_way <= hit_way_comb;
+                    if (hit_comb) begin
+                        // Write byte (simplified)
+                        data_ram[(set_idx * LINE_SIZE * ASSOC_WAYS) + (hit_way_comb * LINE_SIZE) + byte_off] <= mem_tile_if.wr_data_wide[0][7:0];  // Assume byte wr
+                        dirty_array[hit_way_comb][set_idx] <= 1;
+                        lru_array[set_idx] <= ~lru_array[set_idx];  // Update LRU
+                    end else begin
+                        // Allocate/evict similar to MISS, then write
+                        if (dirty_array[evict_way_comb][set_idx]) begin
+                            // Writeback omitted
+                        end
+                        tag_array[evict_way_comb][set_idx] <= tag;
+                        valid_array[evict_way_comb][set_idx] <= 1;
+                        dirty_array[evict_way_comb][set_idx] <= 1;
+                        lru_array[set_idx] <= ~lru_array[set_idx];
+                        // Write byte (simplified, using evict_way as the new way)
+                        data_ram[(set_idx * LINE_SIZE * ASSOC_WAYS) + (evict_way_comb * LINE_SIZE) + byte_off] <= mem_tile_if.wr_data_wide[0][7:0];
+                    end
+                    mem_tile_if.ack <= 1;
+                    next_state <= IDLE;
                 end
-                mem_tile_if.ack = 1;
-                next_state = IDLE;
-            end
 
-            SRF_WR_WIDE: begin
-                // Wide write: Store wide data to RAM at addr; prioritize direct srf_wide_data if valid (near-core bypass)
-                reg_data_t [3:0] write_source = use_direct_wide ? srf_wide_data : mem_tile_if.data_wide;  // Select source
-                for (int i = 0; i < WIDE_WIDTH/8; i++) begin
-                    data_ram[addr_internal + i] = write_source[i/8][7:0];  // Extract bytes
+                SRF_RD_WIDE: begin
+                    // Wide read: Direct RAM access, output full wide data (256 bits from addr); use direct input if valid
+                    for (int i = 0; i < WIDE_WIDTH/8; i++) begin
+                        mem_tile_if.rd_data_wide[i/8] <= {24'b0, data_ram[addr_internal + i]};
+                    end
+                    mem_tile_if.ack <= 1;
+                    next_state <= IDLE;
                 end
-                mem_tile_if.ack = 1;
-                next_state = IDLE;
-            end
 
-            SRF_GATHER_SCATTER: begin
-                // Gather/scatter (simplified: assume addr is base; extend for real ops with strided/indirect)
-                // Eg, for strided: Loop over stride (parametrized; omitted)
-                if (rd_en) begin
-                    mem_tile_if.data_wide[0] = {24'b0, data_ram[addr_internal]};  // Single byte read for sim
-                end else if (wr_en) begin
-                    data_ram[addr_internal] = mem_tile_if.data_wide[0][7:0];
+                SRF_WR_WIDE: begin
+                    // Wide write: Store wide data to RAM at addr; prioritize direct srf_wide_data if valid (near-core bypass)
+                    reg_data_t [7:0] write_source = use_direct_wide ? srf_wide_data : mem_tile_if.wr_data_wide;  // Select source (fixed: wr_)
+                    for (int i = 0; i < WIDE_WIDTH/8; i++) begin
+                        data_ram[addr_internal + i] <= write_source[i/8][7:0];  // Extract bytes
+                    end
+                    mem_tile_if.ack <= 1;
+                    next_state <= IDLE;
                 end
-                mem_tile_if.ack = 1;
-                next_state = IDLE;
-            end
 
-            default: next_state = IDLE;
-        endcase
+                SRF_GATHER_SCATTER: begin
+                    // Gather/scatter (simplified: assume addr is base; extend for real ops with strided/indirect)
+                    // Example- for strided: Loop over stride (parametrized; omitted)
+                    if (rd_en) begin
+                        mem_tile_if.rd_data_wide[0] <= {24'b0, data_ram[addr_internal]};  // Single byte read for sim
+                    end else if (wr_en) begin
+                        data_ram[addr_internal] <= mem_tile_if.wr_data_wide[0][7:0];
+                    end
+                    mem_tile_if.ack <= 1;
+                    next_state <= IDLE;
+                end
+
+                default: next_state <= IDLE;
+            endcase
+        end
     end
 
     // Big-endian handling (if needed; TASL specifies big-endian; assume data_ram MSB first)
