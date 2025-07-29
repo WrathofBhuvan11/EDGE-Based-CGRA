@@ -27,43 +27,80 @@ module i_tile (
     logic cache_hit;                        // Hit flag (simplified all hit for sim)
     logic [31:0] lsid_counter, exit_id_counter;  // Auto counters for LSID/EXIT_ID if missing
 
+    // Raw instruction buffer for the block (fetched from cache_ram)
+    logic [31:0] raw_instructions [(`BLOCK_SIZE-1):0];
+
     // Fetch logic: On req, "load" block from ram (sim: generate dummy instr/header)
     always_ff @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
             ready <= 0;
-            instructions <= '0;
+            for (int i = 0; i < `BLOCK_SIZE; i++) begin
+                raw_instructions[i] = '0;
+            end
             header <= '0;
             lsid_counter <= 0;
             exit_id_counter <= 0;
         end else if (fetch_req) begin
             // Simulate fetch (1-cycle hit; real cache lookup/tag check)
-            cache_hit = 1;  // Assume hit
+            cache_hit <= 1;  // Assume hit
             if (cache_hit) begin
-                // "Decode" to instructions (simplified: Fill with NOP; real parse TASL binary)
+                // "Load" raw_instructions from cache_ram (real read: interleaved banks)
                 for (int i = 0; i < `BLOCK_SIZE; i++) begin
-                    instructions[i].opcode = `OP_NOP;
-                    // Auto LSID/EXIT_ID if 0 
-                    if (instructions[i].isa_class inside {`CLASS_L, `CLASS_S} && instructions[i].lsid == 0) instructions[i].lsid = lsid_counter++;
-                    if (instructions[i].isa_class == `CLASS_B && instructions[i].exit_id == 0) instructions[i].exit_id = exit_id_counter++;
+                    int bank = i % 5;  // Interleave across 5 banks (4 rows +1 reg)
+                    int offset = (block_addr[10:0] + i * 4) % BANK_SIZE;  // Word-aligned (32-bit=4B), mod bank size (simplified direct; real set_idx + line_off)
+                    raw_instructions[i] = {cache_ram[bank][offset+3], cache_ram[bank][offset+2], cache_ram[bank][offset+1], cache_ram[bank][offset]};  // Big-endian byte pack to 32-bit word
                 end
                 // Header gen (simplified fixed; real from compiler mask/reg count)
-                header.store_mask = 32'hFFFFFFFF;  // Example all 32 stores expected
-                header.num_reg_writes = 'd32;      // Max 32
-                header.block_valid = 1;
-                header.morph_mode = morph_config.morph_mode;  // Prop morph
-                ready = 1;
-            end else ready = 0;  // Miss stall (real: Request L2)
-        end else ready = 0;
+                header.store_mask <= 32'hFFFFFFFF;  // Example all 32 stores expected
+                header.num_reg_writes <= 'd32;      // Max 32
+                header.block_valid <= 1;
+                header.morph_mode <= morph_config.morph_mode;  // Prop morph
+                ready <= 1;
+            end else begin
+                ready <= 0;  // Miss stall (real: Request L2)
+            end
+        end else begin
+            ready <= 0;
+        end
     end
 
-    // Instantiate isa_decoder (parse to instr_t; but since fetch "decodes", stub or integrate)
-    isa_decoder isa_decoder_inst (
-        .clk(clk),
-        .rst_n(rst_n),
-        .raw_instr(32'h0),                      // Raw from cache (simplified dummy; real byte_ram read)
-        .fetch_new_block(fetch_new_block),      // new block signal from G
-        .decoded_instr(instructions[0])         // Output example (full array in loop above)
-    );
+    // Decode: fill instructions array from raw_instructions
+    always_comb begin
+        for (int i = 0; i < `BLOCK_SIZE; i++) begin
+            instructions[i] = decode_instr(raw_instructions[i]);  // Call function for each
+            // Auto LSID/EXIT_ID if 0 (in function combo; counters ff)
+        end
+    end
+
+    // Decode function (combo; parse raw to instr_t with auto LSID/EXIT_ID)
+    function automatic instr_t decode_instr(input logic [31:0] raw_instr);
+        instr_t dec;
+        // Assumed layout (inferred; adjust per full spec): [31:29 res][28 pred_en][27 pred_true][26:24 class][23:19 lsid/exit][18:0 imm/bit/op subset]
+        dec.opcode = raw_instr[7:0];  // Low 8 for opcode
+        dec.isa_class = raw_instr[26:24];  // Class 3-bit
+        dec.predicate_en = raw_instr[28];  // Pred en
+        dec.predicate_true = raw_instr[27];  // _t=1, _f=0
+        dec.lsid = raw_instr[23:19];       // LSID 5-bit
+        dec.exit_id = raw_instr[23:19];    // EXIT_ID (shared field for B)
+        dec.imm_value = raw_instr[19:0];   // Imm 20-bit max
+        dec.bit_extract = raw_instr[21:20];  // bit 2-bit for C
+        // Targets: Assumed packed in imm for G (real separate fields/encoding)
+        dec.targets[0].target_instr = raw_instr[15:8];  // Target0 num
+        dec.targets[0].slot = raw_instr[1:0];    // Slot
+        dec.targets[0].valid = 1;                       // Assume valid if non-zero
+        dec.targets[1].target_instr = raw_instr[23:16]; // Target1 (example overlap; adjust)
+        dec.targets[1].slot = raw_instr[3:2];
+        dec.targets[1].valid = raw_instr[23:16] != 0;
+
+        // Auto LSID/EXIT_ID if 0 (increment counters)
+        if (dec.isa_class inside {`CLASS_L, `CLASS_S} && dec.lsid == 0) begin
+            dec.lsid = lsid_counter;
+        end
+        if (dec.isa_class == `CLASS_B && dec.exit_id == 0) begin
+            dec.exit_id = exit_id_counter;
+        end
+        return dec;
+    endfunction
 
     // Morph handling: Unused base (future S-morph loop prefetch if revitalize)
 
