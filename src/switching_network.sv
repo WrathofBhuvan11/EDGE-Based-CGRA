@@ -3,7 +3,6 @@
 // 2D mesh with routers (XY routing, simple flits, RR arbitration; 1-cycle hops for low-latency dataflow).
 // Unchanged across morphs; supports up to 2 targets/instr.
 // Hierarchy: Standalone; router array for E-node interconnect (no sub-instances beyond routers).
-// References: Polymorphous paper (Sec. 2.1: Routed network in ALU array, 1-cycle hops, X/Y/Z relative offsets; Fig. 2c node with res stations/router), compiler paper (Sec. 2: Lightweight switching for operand forwarding), TASL manual (Sec. 4.5: Targets N[target,slot] or W[queue]; up to 2 targets, p for pred).
 // Design: Adapted router from mem net (simplified flit: operand/dest_instr/slot; XY to node from instr_num).
 `include "includes/trips_defines.svh"
 `include "includes/trips_types.svh"
