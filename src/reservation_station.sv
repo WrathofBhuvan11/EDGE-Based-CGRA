@@ -83,8 +83,6 @@ module reservation_station #(
 
     // Instantiate predicate_handler (check _t/_f on pred_operand)
     predicate_handler predicate_handler_inst (
-        .clk(clk),
-        .rst_n(rst_n),
         .predicate_en(instr_in.predicate_en),   // Enable if _t/_f
         .predicate_true(instr_in.predicate_true), // 1=_t, 0=_f
         .pred_operand(frames[current_frame].operands[2]),  // operands[2] vs pred_operand
