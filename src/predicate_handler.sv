@@ -5,8 +5,6 @@
 // -Pred for hyperblock paths).
 
 module predicate_handler (
-    input clk,                              // Clock input (unused; combo)
-    input rst_n,                            // Reset input (unused)
     input logic predicate_en,               // Enable if _t/_f
     input logic predicate_true,             // 1=_t (true if pred true), 0=_f (true if pred false)
     input operand_t pred_operand,           // Pred operand (LSB=1 true)
