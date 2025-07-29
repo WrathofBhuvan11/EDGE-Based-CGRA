@@ -41,7 +41,6 @@ trips_processor.sv (Top: Chip; Instances: trips_core_inst[0:3] (4 cores), mem_ti
 │   │   └── reservation_station.sv (Instance: res_station; Count: 1/node)  // 3 slots (left/right/p), dataflow fire
 │   │       └── predicate_handler.sv (Instance: pred_handler; Count: 1)  // _t/_f check, p slot routing
 │   ├── i_tile.sv (Instance: i_tile_inst; Count: 1)  // I-cache; TASL decode
-│   │   └── isa_decoder.sv (Instance: isa_dec; Count: 1)  // Classes (G/I/L/S/B/C), predicates, LSID/EXIT_ID, sequence <num>
 │   ├── d_tile.sv (Instance: d_tile_inst; Count: 1)  // D-cache; LSID queues (32)
 │   │   └── lsid_unit.sv (Instance: lsid_handler; Count: 1)  // Ordering for L/S classes
 │   └── switching_network.sv (Instance: operand_net; Count: 1)  // Mesh routers; targets (N/W, 0/1/p slots)
