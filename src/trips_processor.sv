@@ -15,7 +15,7 @@ Hierarchy: Top container for trips_core[0:3], mem_tile[0:31], onchip_mem_network
 
 module trips_processor #(
     parameter NUM_CORES = 4,                // Prototype: 4 polymorphous cores
-    parameter NUM_MEM_TILES = `NUM_L2_TILES // 32 tiles for 1MB on-chip memory
+    parameter NUM_MEM_TILES = `NUM_L2_TILES // 16 tiles for 1MB on-chip memory
 ) (
     input clk,                              // Global clock
     input rst_n,                            // Active-low reset
@@ -85,7 +85,7 @@ module trips_processor #(
                 .morph_config(global_config),   // Config for SRF in S-morph (example- no tags, direct access)
                 .mem_tile_if(mem_net_to_tile_if[tile_idx]),  // From on-chip network
                 // Wide SRF channels if adjacent to cores (simplified: assume first 4 tiles adjacent)
-                .srf_wide_data((tile_idx < NUM_CORES) ? core_to_mem_if[tile_idx].data_wide : '0),
+                .srf_wide_data((tile_idx < NUM_CORES) ? core_to_mem_if[tile_idx].wr_data_wide : '0), 
                 .srf_wide_valid((tile_idx < NUM_CORES) && global_config.srf_enable)
             );
         end
@@ -128,5 +128,6 @@ module trips_processor #(
         debug_commit = |{core_control_if[0].commit, core_control_if[1].commit, core_control_if[2].commit, core_control_if[3].commit};
         debug_pc = core_control_if[0].block_addr;  // Example: Core 0's current block addr
     end
+
 
 endmodule: trips_processor
