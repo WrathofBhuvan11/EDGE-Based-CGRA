@@ -19,6 +19,9 @@ module lsid_unit (
     input logic store_req,                  // Store req input
     input logic [31:0] addr,                // Addr input
     input reg_data_t store_data,            // Store data input
+    input logic set_complete,               // Signal from d_tile to set complete
+    input logic [4:0] set_lsid,             // LSID to set complete
+    input reg_data_t set_data,              // Data to set (for loads)
     output reg_data_t load_data,            // Load data output
     output logic ack                        // Ack output (now driven: ordered/processed complete)
 );
@@ -32,7 +35,8 @@ module lsid_unit (
     } lsid_entry_t;
 
     lsid_entry_t lsid_queue [31:0] [3:0];   // Depth 4 per LSID for in-flight
-    logic [1:0] head [31:0], tail [31:0];   // Head/tail per LSID
+    logic [1:0] head [31:0];   // Head per LSID
+    logic [1:0] tail [31:0];   // Tail per LSID
     logic full [31:0], empty [31:0];
 
     // Commit order: Seq counter for global order
@@ -41,39 +45,49 @@ module lsid_unit (
     // Enqueue on req
     always_ff @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
-            head <= '0;
-            tail <= '0;
-            full <= '0;
-            empty <= '1;
             commit_lsid <= 0;
             ack <= 0;
-        end else begin
-            ack = 0;
+            for (int id = 0; id < 32; id++) begin
+                head[id] <= '0;
+                tail[id] <= '0;
+                full[id] <= '0;
+                empty[id] <= '1;
+            end
+        end else
+        begin
+            ack <= 0;
             if (load_req || store_req) begin
                 if (!full[lsid]) begin
-                    lsid_queue[lsid][tail[lsid]].is_load = load_req;
-                    lsid_queue[lsid][tail[lsid]].addr = addr;
-                    lsid_queue[lsid][tail[lsid]].data = store_data;
-                    lsid_queue[lsid][tail[lsid]].complete = 0;
+                    lsid_queue[lsid][tail[lsid]].is_load <= load_req;
+                    lsid_queue[lsid][tail[lsid]].addr <= addr;
+                    lsid_queue[lsid][tail[lsid]].data <= store_data;
+                    lsid_queue[lsid][tail[lsid]].complete <= 0;
                     tail[lsid] <= (tail[lsid] + 1) % 4;
                     empty[lsid] <= 0;
                     full[lsid] <= ((tail[lsid] + 1) % 4 == head[lsid]);
-                    lsid_queue[lsid][tail[lsid]].complete = 1;  // Drive complete (stub; real on hit/ack_mem)
+                end
+            end
+            // Set complete and data from d_tile signal
+            if (set_complete) begin
+                lsid_queue[set_lsid][tail[set_lsid]-1].complete <= 1;  // Set last enqueued
+                if (lsid_queue[set_lsid][tail[set_lsid]-1].is_load) begin
+                    lsid_queue[set_lsid][tail[set_lsid]-1].data <= set_data;
                 end
             end
             // Commit: If head complete && lsid == commit_lsid, dequeue/advance/set ack
             for (int id = 0; id < 32; id++) begin
                 if (!empty[id] && lsid_queue[id][head[id]].complete && id == commit_lsid) begin
-                    if (lsid_queue[id][head[id]].is_load) load_data = lsid_queue[id][head[id]].data;  // Output load
+                    if (lsid_queue[id][head[id]].is_load) load_data <= lsid_queue[id][head[id]].data;  // Output load
                     head[id] <= (head[id] + 1) % 4;
                     full[id] <= 0;
                     empty[id] <= ((head[id] + 1) % 4 == tail[id]);
                     commit_lsid <= (commit_lsid + 1) % 32;  // Advance global
-                    ack = 1;  //Set ack on dequeue (ordered completion)
+                    ack <= 1;  //Set ack on dequeue (ordered completion)
                 end
             end
-            // Mark complete on op done (e.g., from cache hit/ack; assume external complete signal, simplified always complete on enqueue)
+            // Mark complete on op done
         end
     end
+
 
 endmodule
