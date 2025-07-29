@@ -38,13 +38,15 @@ module router #(
     // RR ptr
     logic [NUM_PORTS-1:0] rr_ptr [NUM_PORTS-1:0];
 
-    logic granted;
+    logic granted [NUM_PORTS-1:0];  // Per-output granted
 
     // High pri (combo; conditional on FLIT_TYPE=1 wide)
     logic high_pri_req;
     always_comb begin
         high_pri_req = 0;
-        for (int p = 0; p < NUM_PORTS; p++) if (!empty[p] && buffer[p][head[p]].ipriority > 0) high_pri_req = 1;
+	for (int p = 0; p < NUM_PORTS; p++) begin
+		if (!empty[p] && buffer[p][head[p]].ipriority > 0) high_pri_req = 1;
+	end
     end
 
     // Reset
@@ -124,18 +126,21 @@ module router #(
     endfunction
 
     // Arb/grant (ff)
-    always_ff @(posedge clk) for (int out=0; out<NUM_PORTS; out++) begin
-        grant_matrix[out] = 0;
-        granted = 0;
-        for (int offset=0; offset<NUM_PORTS; offset++) begin
-            int in = (rr_ptr[out] + offset) % NUM_PORTS;
-            if (req_matrix[out][in] && !granted) begin
-                if (buffer[in][head[in]].ipriority > 0 || !high_pri_req) begin
-                    grant_matrix[out][in] = 1;
-                    granted = 1;
-                    rr_ptr[out] <= (in + 1) % NUM_PORTS;
+    always_ff @(posedge clk) begin
+        for (int out=0; out<NUM_PORTS; out++) begin
+            logic granted_temp = 0;  // Temp var for loop-local granted
+            grant_matrix[out] <= 0;
+            for (int offset=0; offset<NUM_PORTS; offset++) begin
+                int in_temp = (rr_ptr[out] + offset) % NUM_PORTS;
+                if (req_matrix[out][in_temp] && !granted_temp) begin
+                    if (buffer[in_temp][head[in_temp]].ipriority > 0 || !high_pri_req) begin
+                        grant_matrix[out][in_temp] <= 1;
+                        granted_temp = 1;
+                        rr_ptr[out] <= (in_temp + 1) % NUM_PORTS;
+                    end
                 end
             end
+            granted[out] <= granted_temp;  // Assign final granted per out
         end
     end
 
