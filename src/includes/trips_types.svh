@@ -74,3 +74,4 @@ typedef struct packed {
 } generic_flit_t;
  
 `endif // TRIPS_TYPES_SVH
+
