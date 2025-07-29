@@ -49,34 +49,38 @@ module r_tile #(
     // Read logic: From regs to rd_queue or direct output
     always_ff @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
-            regs <= '0;             
-            rd_queue <= '0;
-            wr_queue <= '0;
-            rd_valid <= '0;
-            wr_valid <= '0;
             read_data <= '0;
             ack <= 0;
+            for (int i = 0; i < REGS_PER_BANK; i++) begin
+                regs[i] <= '0;
+            end
+            for (int i = 0; i < QUEUE_DEPTH; i++) begin
+                rd_queue[i] <= '0;
+                wr_queue[i] <= '0;
+                rd_valid[i] <= '0;
+                wr_valid[i] <= '0;
+            end
         end else begin
-            ack = 0;
             if (alignment_err) begin
-                ack = 1;  // Ack but err flagged
+                ack <= 1;  // Ack but err flagged
             end else if (read_req) begin
                 // Read from regs (bank-local ID: reg_id / 4 or mod)
                 int local_reg_id = (reg_id / 4) % REGS_PER_BANK;  // Interleaved: G[id] in bank (id % 4)
-                read_data = regs[local_reg_id];
-                rd_queue[queue_id] = read_data;  // Buffer in queue for block
-                rd_valid[queue_id] = 1;
-                ack = 1;
+                read_data <= regs[local_reg_id];
+                rd_queue[queue_id] <= read_data;  // Buffer in queue for block
+                rd_valid[queue_id] <= 1;
+                ack <= 1;
             end else if (write_req) begin
                 int local_reg_id = (reg_id / 4) % REGS_PER_BANK;
-                regs[local_reg_id] = write_data;
-                wr_queue[queue_id] = write_data;  // Buffer if needed; but writes direct
-                wr_valid[queue_id] = 1;
-                ack = 1;
-            end
+                regs[local_reg_id] <= write_data;
+                wr_queue[queue_id] <= write_data;  // Buffer if needed; but writes direct
+                wr_valid[queue_id] <= 1;
+                ack <= 1;
+            end else begin
+	        ack <= 0;
+	    end
         end
     end
 
     // Morph handling: Regs persistent, no action needed (morph_config unused)
-
 endmodule
