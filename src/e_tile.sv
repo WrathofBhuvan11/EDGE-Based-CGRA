@@ -90,8 +90,6 @@ module e_tile #(
 
     // Instantiate predicate_handler (sub of res_station; _t/_f check on pred_operand)
     predicate_handler pred_handler_inst (
-        .clk(clk),
-        .rst_n(rst_n),
         .predicate_en(instr_in.predicate_en), // Enable if _t/_f
         .predicate_true(instr_in.predicate_true), // 1=_t, 0=_f
         .pred_operand(res_operands[2]),     // Pred operand from res_station (fix undef by using res_operands[2] for pred)
