@@ -48,12 +48,7 @@ module router #(
 		if (!empty[p] && buffer[p][head[p]].ipriority > 0) high_pri_req = 1;
 	end
     end
-
-    // Reset
-    always_ff @(posedge clk or negedge rst_n) 
-    if (!rst_n) for (int p=0; p<NUM_PORTS; p++) begin
-        head[p] <= 0; tail[p] <= 0; full[p] <= 0; empty[p] <= 1; rr_ptr[p] <= 0;
-    end
+    
 
     // Buffer push/pop (gen per port)
     genvar p;
@@ -126,21 +121,28 @@ module router #(
     endfunction
 
     // Arb/grant (ff)
-    always_ff @(posedge clk) begin
+    always_ff @(posedge clk or negedge rst_n) begin
         for (int out=0; out<NUM_PORTS; out++) begin
             logic granted_temp = 0;  // Temp var for loop-local granted
-            grant_matrix[out] <= 0;
-            for (int offset=0; offset<NUM_PORTS; offset++) begin
-                int in_temp = (rr_ptr[out] + offset) % NUM_PORTS;
-                if (req_matrix[out][in_temp] && !granted_temp) begin
-                    if (buffer[in_temp][head[in_temp]].ipriority > 0 || !high_pri_req) begin
-                        grant_matrix[out][in_temp] <= 1;
-                        granted_temp = 1;
-                        rr_ptr[out] <= (in_temp + 1) % NUM_PORTS;
+            // Reset per-out state
+            if (!rst_n) begin
+                head[out] <= 0; tail[out] <= 0; full[out] <= 0; empty[out] <= 1; rr_ptr[out] <= 0;
+                granted[out] <= 0;
+                grant_matrix[out] <= 0;
+            end 
+            else begin
+                for (int offset=0; offset<NUM_PORTS; offset++) begin
+                    int in_temp = (rr_ptr[out] + offset) % NUM_PORTS;
+                    if (req_matrix[out][in_temp] && !granted_temp) begin
+                        if (buffer[in_temp][head[in_temp]].ipriority > 0 || !high_pri_req) begin
+                            grant_matrix[out][in_temp] <= 1;
+                            granted_temp = 1;
+                            rr_ptr[out] <= (in_temp + 1) % NUM_PORTS;
+                        end
                     end
                 end
-            end
-            granted[out] <= granted_temp;  // Assign final granted per out
+                granted[out] <= granted_temp;  // Assign final granted per out
+                end
         end
     end
 
