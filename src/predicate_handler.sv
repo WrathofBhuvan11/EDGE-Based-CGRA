@@ -1,7 +1,8 @@
 // predicate_handler.sv
 // Predicate check: _t/_f on pred_operand (true if LSB=1 && en && cond match).
 // Hierarchy: Sub of reservation_station.
-// References: TASL manual (Sec. 4.5.1.2: Pred _t/_f suffixes, p slot LSB=1 true), compiler paper (Sec. 2: Pred for hyperblock paths).
+// -Pred _t/_f suffixes, p slot LSB=1 true)
+// -Pred for hyperblock paths).
 
 module predicate_handler (
     input clk,                              // Clock input (unused; combo)
