@@ -28,7 +28,7 @@ module trips_core #(
     input rst_n,                        // Active-low reset
     input morph_config_t morph_config,  // Morph config from top (D/T/S modes)
     control_if.master control_if,       // Control if (fetch/commit, morph signals)
-    mem_tile_if.core mem_tile_if,       // To on-chip mem network (L2/SRF)
+    mem_tile_if.master mem_tile_if,       // To on-chip mem network (L2/SRF)
     output logic debug_commit,          // Debug: Block commit
     output logic [31:0] debug_pc        // Debug: Current block PC
 );
@@ -174,7 +174,7 @@ module trips_core #(
     i_tile i_tile_inst (
         .clk(clk),                          // Clock input
         .rst_n(rst_n),                      // Reset input
-        .morph_config(morph_config),        // Morph configuration (e.g., S-morph loops)
+        .morph_config(morph_config),        // Morph configuration (example S-morph loop prefetch)
         .fetch_req(instr_fetch_if.fetch_req), // Fetch req input from G
         .block_addr(instr_fetch_if.block_addr), // Block addr input
         .instructions(instr_fetch_if.instructions), // Instructions output (up to 128)
@@ -199,10 +199,14 @@ module trips_core #(
         .mem_tile_addr(mem_tile_if.addr),            // Addr output to on-chip net
         .mem_tile_read_req(mem_tile_if.read_req),    // Read req output
         .mem_tile_write_req(mem_tile_if.write_req),  // Write req output
-        .mem_tile_data_wide(mem_tile_if.data_wide),  // Wide data output for SRF
+        .mem_tile_wr_data_wide(mem_tile_if.wr_data_wide),  // Wide data input for SRF
         .mem_tile_config_srf(mem_tile_if.config_srf),// SRF config output
-        .mem_tile_ack(mem_tile_if.ack)               // Ack input from net
+        .mem_tile_ack(mem_tile_if.ack),              // Ack input from net
+        .mem_tile_rd_data_wide(mem_tile_rd_data_wide_wire)  // Wide data input for SRF
     );
+
+    // Assign the wire for rd_data_wide
+    assign mem_tile_rd_data_wide_wire = mem_tile_if.rd_data_wide;
 
     // Instantiate switching_network (operand mesh)
     switching_network switching_network_inst (
