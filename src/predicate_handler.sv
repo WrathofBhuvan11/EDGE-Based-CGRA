@@ -4,6 +4,13 @@
 // -Pred _t/_f suffixes, p slot LSB=1 true)
 // -Pred for hyperblock paths).
 
+`include "includes/trips_defines.svh"
+`include "includes/trips_types.svh"
+`include "includes/trips_interfaces.svh"
+`include "includes/trips_isa.svh"
+`include "includes/trips_params.svh"
+`include "includes/trips_config.svh"
+
 module predicate_handler (
     input logic predicate_en,               // Enable if _t/_f
     input logic predicate_true,             // 1=_t (true if pred true), 0=_f (true if pred false)
@@ -17,3 +24,4 @@ module predicate_handler (
     end
 
 endmodule
+
