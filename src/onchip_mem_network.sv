@@ -47,40 +47,8 @@ module onchip_mem_network #(
 
     // Mapping: Cores to top-row routers (0,0) to (0,3); tiles to remaining (ID % TOTAL_ROUTERS)
     localparam int CORE_ROUTER_MAP [NUM_CORES-1:0] = '{0: 0*ROUTER_COLS + 0, 1: 0*ROUTER_COLS + 1, 2: 0*ROUTER_COLS + 2, 3: 0*ROUTER_COLS + 3};
-    localparam int TILE_ROUTER_MAP [NUM_TILES-1:0] ='{
-                                                         0, 
-                                                         1, 
-                                                         2, 
-                                                         3, 
-                                                         4, 
-                                                         5, 
-                                                         6, 
-                                                         7, 
-                                                         8, 
-                                                         9, 
-                                                         10,
-                                                         11,
-                                                         12,
-                                                         13,
-                                                         14,
-                                                         15,
-                                                         16,
-                                                         17,
-                                                         18,
-                                                         19,
-                                                         20,
-                                                         21,
-                                                         22,
-                                                         23,
-                                                         24,
-                                                         25,
-                                                         26,
-                                                         27,
-                                                         28,
-                                                         29,
-                                                         30,
-                                                         31
-                                                         };
+    localparam int TILE_ROUTER_MAP [NUM_TILES-1:0] = '{0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31};
+    
     // Internal signals
     logic is_srf_mode = morph_config.srf_enable;
 
