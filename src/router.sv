@@ -28,7 +28,8 @@ module router #(
 
     // Buffers
     generic_flit_t buffer [NUM_PORTS-1:0] [BUFFER_DEPTH-1:0];
-    logic [$clog2(BUFFER_DEPTH+1)-1:0] head [NUM_PORTS-1:0], tail [NUM_PORTS-1:0];
+    logic [$clog2(BUFFER_DEPTH+1)-1:0] head [NUM_PORTS-1:0];
+    logic [$clog2(BUFFER_DEPTH+1)-1:0] tail [NUM_PORTS-1:0];
     logic full [NUM_PORTS-1:0], empty [NUM_PORTS-1:0];
 
     // Req/grant
@@ -132,7 +133,8 @@ module router #(
             end 
             else begin
                 for (int offset=0; offset<NUM_PORTS; offset++) begin
-                    int in_temp = (rr_ptr[out] + offset) % NUM_PORTS;
+                    int in_temp;
+                    in_temp = (rr_ptr[out] + offset) % NUM_PORTS;
                     if (req_matrix[out][in_temp] && !granted_temp) begin
                         if (buffer[in_temp][head[in_temp]].ipriority > 0 || !high_pri_req) begin
                             grant_matrix[out][in_temp] <= 1;
