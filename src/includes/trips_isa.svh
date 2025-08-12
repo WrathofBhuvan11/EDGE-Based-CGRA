@@ -5,6 +5,7 @@
 `define TRIPS_ISA_SVH
 
 `include "trips_defines.svh"
+`include "trips_params.svh"
 `include "trips_types.svh"
 
 // ISA classes (encoded in instr_t.isa_class)
