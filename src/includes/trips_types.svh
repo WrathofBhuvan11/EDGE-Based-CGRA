@@ -5,6 +5,7 @@
 `define TRIPS_TYPES_SVH
 
 `include "trips_defines.svh"
+`include "trips_params.svh"
 
 // Basic types
 typedef logic [31:0] reg_data_t;    // 32-bit register/operand data (assuming 32-bit arch)
