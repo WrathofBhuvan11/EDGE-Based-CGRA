@@ -54,7 +54,7 @@ module onchip_mem_network #(
     logic is_srf_mode = morph_config.srf_enable;  // Derived from morph_config; enables SRF mode for wide transfers (S-morph)
 
     // Instantiate routers: Generate 2D array with FLIT_TYPE=1
-    // Each router is a 5-port XY router (router.sv); instantiated in a flattened loop for Verilog compatibility
+    // Each router is a 5-port XY router (router.sv); instantiated in a flattened loop for verilator compatibility
     genvar r_row, r_col;
     generate
         for (r_row = 0; r_row < ROUTER_ROWS; r_row++) begin : gen_router_rows  // Outer loop for rows
@@ -79,132 +79,143 @@ module onchip_mem_network #(
         end
     endgenerate
 
-    // Mesh wiring with boundary checks
-    // Wires adjacent routers: example., my north_out to neighbor's south_in; skips boundaries to avoid invalid indices/dead ends
-    // Uses assign for continuous connections; bidirectional (flit/req forward, ack back)
+    // Mesh wiring: Connect routers internally (N-S, E-W edges handled with defaults)
     generate
         for (r_row = 0; r_row < ROUTER_ROWS; r_row++) begin : gen_wiring_rows  // Loop over rows for wiring
             for (r_col = 0; r_col < ROUTER_COLS; r_col++) begin : gen_wiring_cols  // Loop over columns
-                localparam int RID = r_row * ROUTER_COLS + r_col;  // Current router ID
+                localparam int rid = r_row * ROUTER_COLS + r_col;  // Current router ID
 
                 // North connection (only if not top row; connect my north to northern neighbor's south)
                 if (r_row > 0) begin
-                    localparam int NORTH_RID = (r_row - 1) * ROUTER_COLS + r_col;  // Northern neighbor ID (non-negative)
-                    assign south_net[NORTH_RID].flit_in = north_net[RID].flit_out;  // Forward flit southbound
-                    assign north_net[RID].ack_in = south_net[NORTH_RID].ack_out;    // Back ack northbound
-                    assign north_net[RID].flit_in = south_net[NORTH_RID].flit_out;  // Forward flit northbound (response path)
-                    assign south_net[NORTH_RID].ack_out = north_net[RID].ack_in;    // Back ack southbound
-                    assign south_net[NORTH_RID].req_in = north_net[RID].req_out;    // Forward req southbound
-                    assign north_net[RID].ack_out = south_net[NORTH_RID].ack_in;    // Back ack northbound (handshake complete)
-                    assign north_net[RID].req_in = south_net[NORTH_RID].req_out;    // Forward req northbound
-                    assign south_net[NORTH_RID].ack_in = north_net[RID].ack_out;    // Back ack southbound
+                    // Connect south of north neighbor to this north
+                    localparam int north_rid = (r_row - 1) * ROUTER_COLS + r_col;
+                    assign south_net[north_rid].flit_in = north_net[rid].flit_out;
+                    assign south_net[north_rid].req_in = north_net[rid].req_out;
+                    assign north_net[rid].ack_out = south_net[north_rid].ack_in;
+                    assign north_net[rid].flit_in = south_net[north_rid].flit_out;
+                    assign north_net[rid].req_in = south_net[north_rid].req_out;
+                    assign south_net[north_rid].ack_out = north_net[rid].ack_in;
+                end else begin
+                    // Top row: No north connection
+                    assign north_net[rid].flit_in = '0;
+                    assign north_net[rid].req_in = 0;
+                    assign north_net[rid].ack_out = 0;  // No ack needed
                 end
 
                 // South connection (only if not bottom row; connect my south to southern neighbor's north)
                 if (r_row < ROUTER_ROWS - 1) begin
-                    localparam int SOUTH_RID = (r_row + 1) * ROUTER_COLS + r_col;  // Southern neighbor ID (within bounds)
-                    assign north_net[SOUTH_RID].flit_in = south_net[RID].flit_out;  // Forward flit northbound to south
-                    assign south_net[RID].ack_in = north_net[SOUTH_RID].ack_out;    // Back ack
-                    assign south_net[RID].flit_in = north_net[SOUTH_RID].flit_out;  // Forward response
-                    assign north_net[SOUTH_RID].ack_out = south_net[RID].ack_in;    // Back ack
-                    assign north_net[SOUTH_RID].req_in = south_net[RID].req_out;    // Forward req
-                    assign south_net[RID].ack_out = north_net[SOUTH_RID].ack_in;    // Back ack
-                    assign south_net[RID].req_in = north_net[SOUTH_RID].req_out;    // Forward req response path
-                    assign north_net[SOUTH_RID].ack_in = south_net[RID].ack_out;    // Back ack
+                    // Connect north of south neighbor to this south
+                    localparam int south_rid = (r_row + 1) * ROUTER_COLS + r_col;
+                    assign north_net[south_rid].flit_in = south_net[rid].flit_out;
+                    assign north_net[south_rid].req_in = south_net[rid].req_out;
+                    assign south_net[rid].ack_out = north_net[south_rid].ack_in;
+                    assign south_net[rid].flit_in = north_net[south_rid].flit_out;
+                    assign south_net[rid].req_in = north_net[south_rid].req_out;
+                    assign north_net[south_rid].ack_out = south_net[rid].ack_in;
+                end else begin
+                    // Bottom row: No south connection
+                    assign south_net[rid].flit_in = '0;
+                    assign south_net[rid].req_in = 0;
+                    assign south_net[rid].ack_out = 0;
                 end
 
                 // East connection (only if not rightmost column; connect my east to eastern neighbor's west)
                 if (r_col < ROUTER_COLS - 1) begin
-                    localparam int EAST_RID = r_row * ROUTER_COLS + (r_col + 1);  // Eastern neighbor ID
-                    assign west_net[EAST_RID].flit_in = east_net[RID].flit_out;    // Forward flit westbound to east
-                    assign east_net[RID].ack_in = west_net[EAST_RID].ack_out;      // Back ack
-                    assign east_net[RID].flit_in = west_net[EAST_RID].flit_out;    // Forward response
-                    assign west_net[EAST_RID].ack_out = east_net[RID].ack_in;      // Back ack
-                    assign west_net[EAST_RID].req_in = east_net[RID].req_out;      // Forward req
-                    assign east_net[RID].ack_out = west_net[EAST_RID].ack_in;      // Back ack
-                    assign east_net[RID].req_in = west_net[EAST_RID].req_out;      // Forward req response
-                    assign west_net[EAST_RID].ack_in = east_net[RID].ack_out;      // Back ack
+                    // Connect west of east neighbor to this east
+                    localparam int east_rid = r_row * ROUTER_COLS + (r_col + 1);
+                    assign west_net[east_rid].flit_in = east_net[rid].flit_out;
+                    assign west_net[east_rid].req_in = east_net[rid].req_out;
+                    assign east_net[rid].ack_out = west_net[east_rid].ack_in;
+                    assign east_net[rid].flit_in = west_net[east_rid].flit_out;
+                    assign east_net[rid].req_in = west_net[east_rid].req_out;
+                    assign west_net[east_rid].ack_out = east_net[rid].ack_in;
+                end else begin
+                    // Right edge: No east connection
+                    assign east_net[rid].flit_in = '0;
+                    assign east_net[rid].req_in = 0;
+                    assign east_net[rid].ack_out = 0;
                 end
 
                 // West connection (only if not leftmost column; connect my west to western neighbor's east)
                 if (r_col > 0) begin
-                    localparam int WEST_RID = r_row * ROUTER_COLS + (r_col - 1);  // Western neighbor ID
-                    assign east_net[WEST_RID].flit_in = west_net[RID].flit_out;    // Forward flit eastbound to west
-                    assign west_net[RID].ack_in = east_net[WEST_RID].ack_out;      // Back ack
-                    assign west_net[RID].flit_in = east_net[WEST_RID].flit_out;    // Forward response
-                    assign east_net[WEST_RID].ack_out = west_net[RID].ack_in;      // Back ack
-                    assign east_net[WEST_RID].req_in = west_net[RID].req_out;      // Forward req
-                    assign west_net[RID].ack_out = east_net[WEST_RID].ack_in;      // Back ack
-                    assign west_net[RID].req_in = east_net[WEST_RID].req_out;      // Forward req response
-                    assign east_net[WEST_RID].ack_in = west_net[RID].ack_out;      // Back ack
+                    // Connect east of west neighbor to this west
+                    localparam int west_rid = r_row * ROUTER_COLS + (r_col - 1);
+                    assign east_net[west_rid].flit_in = west_net[rid].flit_out;
+                    assign east_net[west_rid].req_in = west_net[rid].req_out;
+                    assign west_net[rid].ack_out = east_net[west_rid].ack_in;
+                    assign west_net[rid].flit_in = east_net[west_rid].flit_out;
+                    assign west_net[rid].req_in = east_net[west_rid].req_out;
+                    assign east_net[west_rid].ack_out = west_net[rid].ack_in;
+                end else begin
+                    // Left edge: No west connection
+                    assign west_net[rid].flit_in = '0;
+                    assign west_net[rid].req_in = 0;
+                    assign west_net[rid].ack_out = 0;
                 end
             end
         end
     endgenerate
 
-    // Connect cores to local ports (request from core to net)
-    // For each core: Pack incoming mem reqs into flits for network injection; unpack responses from network
+    // Connect cores: Generate for each core (pack requests to local in, unpack responses from local out)
     generate
-        for (genvar c = 0; c < NUM_CORES; c++) begin : gen_core_connect  // Loop over cores
-            localparam int rid = CORE_ROUTER_MAP[c];  // Get router ID for this core (top row)
+        for (genvar c = 0; c < NUM_CORES; c++) begin : gen_cores
+            localparam int rid = CORE_ROUTER_MAP[c];  // Router ID for this core
 
-            // Pack core req to local in (REQUEST to net)
-            // Constructs generic_flit_t from mem_tile_if signals; sets fields like wide/is_read for S-morph
+            // Pack core request to local in (REQUEST from core to net)
+            // Constructs request flit from mem_tile_if.slave signals (core drives inputs)
             always_comb begin
-                generic_flit_t req_flit = '0;  // Default initialization (all zeros)
-                req_flit.addr = core_mem_if[c].addr;  // Memory address from core
-                req_flit.is_read = core_mem_if[c].read_req;  // Load flag
-                req_flit.is_wide = core_mem_if[c].data_wide_valid && is_srf_mode;  // Wide transfer if SRF enabled
-                req_flit.transfer_type = 0;  // Default (add logic for gather/scatter if needed)
-                req_flit.payload_size = req_flit.is_wide ? WIDE_WIDTH / 8 : FLIT_SIZE / 8;  // Bytes in payload
-                req_flit.data = req_flit.is_wide ? core_mem_if[c].wr_data_wide : core_mem_if[c].store_data;  // Data selection
-                req_flit.last_flit = 1;  // Assume single-flit for simplicity; extend for multi-flit in wormhole
-                req_flit.ipriority = req_flit.is_wide ? 1 : 0;  // Higher priority for wide in S-morph
-                req_flit.src_core = c;  // Source core ID for response routing
+                generic_flit_t req_flit;
+                req_flit.addr = core_mem_if[c].addr;  // Address from core
+                req_flit.is_read = core_mem_if[c].read_req;  // Load
+                req_flit.is_wide = core_mem_if[c].data_wide_valid && is_srf_mode;  // Wide for SRF
+                req_flit.transfer_type = 0;  // Default (extend for gather/scatter)
+                req_flit.payload_size = req_flit.is_wide ? WIDE_WIDTH / 8 : FLIT_SIZE / 8;  // Payload bytes
+                req_flit.data = req_flit.is_wide ? core_mem_if[c].wr_data_wide : core_mem_if[c].store_data;  // Data to send (wide or std)
+                req_flit.last_flit = 1;  // Single-flit assumption (TODO: multi-flit for wide)
+                req_flit.ipriority = req_flit.is_wide ? 1 : 0;  // Higher priority for wide SRF
+                req_flit.src_core = c;  // Source core for response routing (if needed)
 
-                local_net[rid].flit_in = req_flit;  // Inject flit into local port
-                local_net[rid].req_in = core_mem_if[c].read_req || core_mem_if[c].write_req;  // Assert req if active
+                local_net[rid].flit_in = req_flit;  // Inject request flit
+                local_net[rid].req_in = core_mem_if[c].read_req || core_mem_if[c].write_req;  // Assert on core req
             end
 
-            // Unpack from local out to core (RESPONSE from net)
-            // Extracts response from flit; sets ack and data_wide; handles backpressure via ack_in
+            // Unpack from local out to core (RESPONSE from net to core)
+            // Deconstructs response flit for core_mem_if.slave (net drives outputs to core)
             always_comb begin
                 generic_flit_t resp_flit = '0;  // Default initialization
-                if (local_net[rid].req_out) begin  // If network asserts req_out (response ready)
-                    resp_flit = local_net[rid].flit_out;  // Get outgoing flit
-                    core_mem_if[c].rd_data_wide = resp_flit.is_wide ? resp_flit.data : '0;  // Unpack data (wide or std)
-                    core_mem_if[c].ack = local_net[rid].req_out;  // Ack to core (response valid)
-                    local_net[rid].ack_in = core_mem_if[c].ack;  // Backpressure: core's ack back to net (slave modport allows)
-                end else begin  // No response: defaults
+                if (local_net[rid].req_out) begin  // If network req_out (response arriving)
+                    resp_flit = local_net[rid].flit_out;  // Get flit
+                    core_mem_if[c].rd_data_wide = resp_flit.is_wide ? resp_flit.data : '0;  // Unpack wide data (type mismatch note: assumes data is array-like; fix with multi-flit)
+                    core_mem_if[c].ack = local_net[rid].req_out && (resp_flit.is_read == 0);  // Ack on response (is_read=0 flags resp)
+                end else begin  // Idle defaults
                     core_mem_if[c].rd_data_wide = '0;
                     core_mem_if[c].ack = 0;
-                    local_net[rid].ack_in = 0;
                 end
+                local_net[rid].ack_in = core_mem_if[c].ack;  // Core ack back to net (closes handshake)
             end
         end
     endgenerate
 
-    // Connect tiles to local ports
-    // For each memory tile: Unpack reqs from network, pack responses back; tiles are mem_tile.sv instances
+    // Connect tiles: Generate for each memory tile (unpack requests from local out, pack responses to local in)
     generate
-        for (genvar t = 0; t < NUM_TILES; t++) begin : gen_tile_connect  // Loop over tiles
-            localparam int rid = TILE_ROUTER_MAP[t];  // Get router ID for this tile
+        for (genvar t = 0; t < NUM_TILES; t++) begin : gen_tiles
+            localparam int rid = TILE_ROUTER_MAP[t];  // Router ID for this tile
 
             // Unpack from local out to tile (REQUEST to tile)
-            // Deconstructs flit into mem_tile_if signals for tile access (cache/SRF mode)
+            // Deconstructs flit for tile_mem_if.master (net drives outputs to tile)
             always_comb begin
                 generic_flit_t req_flit = '0;  // Default initialization
-                if (local_net[rid].req_out) begin  // If network asserts req_out (req ready)
+                if (local_net[rid].req_out) begin  // If network req_out (request arriving)
                     req_flit = local_net[rid].flit_out;  // Get flit
                     tile_mem_if[t].addr = req_flit.addr;  // Addr to tile
-                    tile_mem_if[t].read_req = req_flit.is_read;  // Load req
-                    tile_mem_if[t].write_req = !req_flit.is_read;  // Store req
-                    tile_mem_if[t].wr_data_wide = req_flit.is_wide ? req_flit.data : '0;  // Wide data if SRF
-                    tile_mem_if[t].data_wide_valid = req_flit.is_wide;  // Valid flag for wide
-                    tile_mem_if[t].store_data = req_flit.data;  // Std store data
-                    tile_mem_if[t].config_srf = is_srf_mode;  // Config tile as SRF (no tags, stream mode)
-                    local_net[rid].ack_in = tile_mem_if[t].ack;  // Tile's ack back to net (master modport allows)
-                end else begin  // No req: defaults to idle
+                    tile_mem_if[t].read_req = req_flit.is_read;  // Load
+                    tile_mem_if[t].write_req = !req_flit.is_read;  // Store
+                    tile_mem_if[t].wr_data_wide = req_flit.is_wide ? req_flit.data : '0;  // Wide data
+                    tile_mem_if[t].data_wide_valid = req_flit.is_wide;  // Valid
+                    tile_mem_if[t].store_data = req_flit.data;  // Std data
+                    tile_mem_if[t].config_srf = is_srf_mode;  // Config tile as SRF
+                    local_net[rid].ack_in = tile_mem_if[t].ack;  // Tile ack back to net
+                end else begin  // Idle defaults
                     tile_mem_if[t].addr = '0;
                     tile_mem_if[t].read_req = 0;
                     tile_mem_if[t].write_req = 0;
@@ -212,20 +223,20 @@ module onchip_mem_network #(
                     tile_mem_if[t].data_wide_valid = 0;
                     tile_mem_if[t].store_data = '0;
                     tile_mem_if[t].config_srf = 0;
-                    local_net[rid].ack_in = '0;
+                    local_net[rid].ack_in = 0;
                 end
             end
 
-            // Pack tile response to local in (for return path) - RESPONSE from tile to net
-            // Constructs response flit from tile's outputs; asserts req_in on ack (for loads)
+            // Pack tile response to local in (RESPONSE from tile to net)
+            // Constructs response flit from tile_mem_if.master (tile drives inputs to net)
             always_comb begin
                 generic_flit_t resp_flit = '0;  // Default initialization
-                resp_flit.addr = tile_mem_if[t].addr;  // Return addr (may include dest routing info)
-                resp_flit.is_read = 0;  // Flag as response (not new req)
-                resp_flit.is_wide = tile_mem_if[t].data_wide_valid && is_srf_mode;  // Wide if valid and SRF
+                resp_flit.addr = tile_mem_if[t].addr;  // Return addr (held by tile)
+                resp_flit.is_read = 0;  // Response flag
+                resp_flit.is_wide = tile_mem_if[t].data_wide_valid && is_srf_mode;  // Wide if valid
                 resp_flit.transfer_type = 0;  // Default (extend for scatter/gather results)
                 resp_flit.payload_size = resp_flit.is_wide ? WIDE_WIDTH / 8 : FLIT_SIZE / 8;  // Payload bytes
-                resp_flit.data = tile_mem_if[t].rd_data_wide;  // Loaded data (wide array)
+                resp_flit.data = resp_flit.is_wide ? tile_mem_if[t].rd_data_wide : '0;  // Loaded data (wide array)
                 resp_flit.last_flit = 1;  // Single-flit response
                 resp_flit.ipriority = 0;  // Normal priority for responses
                 resp_flit.src_core = 0;  // Dummy (tile doesn't track src; use addr for routing)
